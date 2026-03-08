@@ -1,0 +1,41 @@
+package com.minhthien.web.coach.controller;
+
+import com.minhthien.web.coach.dto.request.UpdatePasswordRequest;
+import com.minhthien.web.coach.dto.response.ApiResponse;
+import com.minhthien.web.coach.dto.response.UserResponse;
+import com.minhthien.web.coach.entity.User;
+import com.minhthien.web.coach.service.UserService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/users")
+@SecurityRequirement(name = "bearerAuth")
+public class UserController {
+    @Autowired
+    private UserService userService;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<UserResponse>> getUser(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(userService.getUserById(id)));
+    }
+
+    @PutMapping("/password")
+    public ResponseEntity<ApiResponse<Void>> updatePassword(
+            @AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody UpdatePasswordRequest request) {
+        userService.updatePassword(currentUser.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Password updated", null));
+    }
+
+    @PutMapping("/deactivate")
+    public ResponseEntity<ApiResponse<Void>> deactivate(@AuthenticationPrincipal User currentUser) {
+        userService.deactivateAccount(currentUser.getId());
+        return ResponseEntity.ok(ApiResponse.success("Account deactivated", null));
+    }
+}
+
