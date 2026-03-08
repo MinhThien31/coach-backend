@@ -60,6 +60,7 @@ public class AuthServiceImpl implements AuthService {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .fullName(request.getFullName())
+                .Phone(request.getPhone())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(request.getRole())
                 .active(true)
@@ -72,6 +73,8 @@ public class AuthServiceImpl implements AuthService {
                 .tokenType("Bearer")
                 .userId(user.getId())
                 .username(user.getUsername())
+                .fullName(user.getFullName())
+                .phone(user.getPhone())
                 .email(user.getEmail())
                 .role(user.getRole())
                 .build();

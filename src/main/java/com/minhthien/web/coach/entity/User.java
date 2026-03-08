@@ -35,6 +35,8 @@ public class User implements UserDetails
     @Column(length = 100)
     private String fullName;
 
+    private String Phone;
+
     @Column(length = 255)
     private String password;
 
