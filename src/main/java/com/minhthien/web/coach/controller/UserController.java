@@ -37,5 +37,19 @@ public class UserController {
         userService.deactivateAccount(currentUser.getId());
         return ResponseEntity.ok(ApiResponse.success("Account deactivated", null));
     }
+
+    @PutMapping("/activate/{userId}")
+    public ResponseEntity<ApiResponse<Void>> activateAccount(@PathVariable Long userId) {
+        userService.activateAccount(userId);
+        return ResponseEntity.ok(ApiResponse.success("Account activated", null));
+    }
+    @PutMapping("/{userId}/status")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUserStatus(
+            @PathVariable Long userId,
+            @RequestParam boolean active) {
+
+        UserResponse response = userService.updateUserStatus(userId, active);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }
 
