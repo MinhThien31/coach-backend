@@ -1,4 +1,4 @@
-package com.minhthien.web.coach.service.Impl;
+package com.minhthien.web.coach.service.impl;
 
 import com.minhthien.web.coach.dto.request.UpdatePasswordRequest;
 import com.minhthien.web.coach.dto.response.UserResponse;

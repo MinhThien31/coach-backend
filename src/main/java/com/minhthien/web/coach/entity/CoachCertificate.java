@@ -1,0 +1,23 @@
+package com.minhthien.web.coach.entity;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "coach_certificates")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class CoachCertificate {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    @ManyToOne
+    private CoachProfile coach;
+}

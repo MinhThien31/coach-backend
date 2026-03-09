@@ -1,4 +1,4 @@
-package com.minhthien.web.coach.service.Impl;
+package com.minhthien.web.coach.service.impl;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;

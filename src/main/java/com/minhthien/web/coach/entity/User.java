@@ -53,6 +53,8 @@ public class User implements UserDetails
 
     private String provider;
 
+    private String location;
+
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
