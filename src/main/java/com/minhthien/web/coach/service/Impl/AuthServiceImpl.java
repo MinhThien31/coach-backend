@@ -28,9 +28,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Random;
 
 @Service
@@ -209,6 +211,56 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception e) {
 
             throw new RuntimeException("Google login failed");
+        }
+    }
+
+    @Override
+    public AuthResponse loginFacebook(String accessToken) {
+        try {
+
+            String url = "https://graph.facebook.com/me?fields=id,name,email,picture&access_token=" + accessToken;
+
+            RestTemplate restTemplate = new RestTemplate();
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+
+            String email = (String) response.get("email");
+            String name = (String) response.get("name");
+            String id = (String) response.get("id");
+
+            if(email == null){
+                email = id + "@facebook.com";
+            }
+
+            final String finalEmail = email;
+
+            User user = userRepository.findByEmail(finalEmail)
+                    .orElseGet(() -> {
+
+                        User newUser = User.builder()
+                                .email(finalEmail)
+                                .username(name)
+                                .role(UserRole.TRAINEES)
+                                .active(true)
+                                .provider("FACEBOOK")
+                                .build();
+
+                        return userRepository.save(newUser);
+                    });
+
+            String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
+
+            return AuthResponse.builder()
+                    .token(token)
+                    .tokenType("Bearer")
+                    .userId(user.getId())
+                    .username(user.getUsername())
+                    .email(user.getEmail())
+                    .role(user.getRole())
+                    .build();
+
+        } catch (Exception e) {
+
+            throw new RuntimeException("Facebook login failed");
         }
     }
 

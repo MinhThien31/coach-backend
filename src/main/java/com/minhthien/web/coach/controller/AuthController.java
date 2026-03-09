@@ -88,4 +88,9 @@ public class AuthController {
 
         return authService.loginGoogle(request.getIdToken());
     }
+
+    @PostMapping("/facebook")
+    public AuthResponse loginFacebook(@RequestBody FacebookLoginRequest request) {
+        return authService.loginFacebook(request.getAccessToken());
+    }
 }
