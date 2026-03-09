@@ -14,4 +14,6 @@ public interface AuthService {
 
     void resetPassword(String email, String otp, String newPassword);
 
+    AuthResponse loginGoogle(String idToken);
+
 }

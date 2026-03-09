@@ -1,9 +1,6 @@
 package com.minhthien.web.coach.controller;
 
-import com.minhthien.web.coach.dto.request.ForgotPasswordRequest;
-import com.minhthien.web.coach.dto.request.LoginRequest;
-import com.minhthien.web.coach.dto.request.RegisterRequest;
-import com.minhthien.web.coach.dto.request.ResetPasswordRequest;
+import com.minhthien.web.coach.dto.request.*;
 import com.minhthien.web.coach.dto.response.ApiResponse;
 import com.minhthien.web.coach.dto.response.AuthResponse;
 import com.minhthien.web.coach.dto.response.UserResponse;
@@ -82,5 +79,13 @@ public class AuthController {
         return ResponseEntity.ok(
                 ApiResponse.success("Password reset successful")
         );
+    }
+
+    @PostMapping("/google")
+    public AuthResponse loginGoogle(
+            @RequestBody GoogleLoginRequest request
+    ) {
+
+        return authService.loginGoogle(request.getIdToken());
     }
 }

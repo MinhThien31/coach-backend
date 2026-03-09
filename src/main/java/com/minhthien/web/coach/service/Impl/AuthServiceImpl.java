@@ -1,5 +1,9 @@
 package com.minhthien.web.coach.service.Impl;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.minhthien.web.coach.dto.request.LoginRequest;
 import com.minhthien.web.coach.dto.request.RegisterRequest;
 import com.minhthien.web.coach.dto.response.AuthResponse;
@@ -16,6 +20,7 @@ import com.minhthien.web.coach.security.JwtTokenProvider;
 import com.minhthien.web.coach.service.AuthService;
 import com.minhthien.web.coach.service.MailService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -25,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Random;
 
 @Service
@@ -42,6 +48,8 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private MailService mailService;
+    @Value("${google.client-id}")
+    private String googleClientId;
 
     @Override
     @Transactional
@@ -148,6 +156,60 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
+    }
+
+    @Override
+    public AuthResponse loginGoogle(String idToken) {
+
+        try {
+
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    GoogleNetHttpTransport.newTrustedTransport(),
+                    GsonFactory.getDefaultInstance())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken googleToken = verifier.verify(idToken);
+
+            if (googleToken == null) {
+                throw new BadRequestException("Invalid Google token");
+            }
+
+            GoogleIdToken.Payload payload = googleToken.getPayload();
+
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+            String picture = (String) payload.get("picture");
+
+            User user = userRepository.findByEmail(email)
+                    .orElseGet(() -> {
+
+                        User newUser = User.builder()
+                                .email(email)
+                                .username(name)
+                                .avatarUrl(picture)
+                                .role(UserRole.TRAINEES)
+                                .active(true)
+                                .build();
+
+                        return userRepository.save(newUser);
+                    });
+
+            String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
+
+            return AuthResponse.builder()
+                    .token(token)
+                    .tokenType("Bearer")
+                    .userId(user.getId())
+                    .username(user.getUsername())
+                    .email(user.getEmail())
+                    .role(user.getRole())
+                    .build();
+
+        } catch (Exception e) {
+
+            throw new RuntimeException("Google login failed");
+        }
     }
 
     private UserResponse mapToUserResponse(User user) {

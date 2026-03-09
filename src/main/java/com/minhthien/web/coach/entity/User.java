@@ -51,6 +51,8 @@ public class User implements UserDetails
     @Column(length = 255)
     private String avatarUrl;
 
+    private String provider;
+
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
