@@ -78,7 +78,7 @@ public class CoachServiceImpl implements CoachService {
                         .price(coach.getPrice())
                         .rating(coach.getRating())
                         .reviewCount(coach.getReviewCount())
-                        .location(coach.getUser().getLocation())
+                        .location(coach.getLocation())
                         .build()
         );
     }
@@ -128,7 +128,7 @@ public class CoachServiceImpl implements CoachService {
                 .fullName(coach.getUser().getFullName())
                 .avatar(coach.getAvatarUrl())
                 .category(coach.getCategory().getName())
-                .location(coach.getUser().getLocation())
+                .location(coach.getLocation())
                 .price(coach.getPrice())
                 .rating(coach.getRating())
                 .students(coach.getStudents())
@@ -156,7 +156,7 @@ public class CoachServiceImpl implements CoachService {
                         .price(c.getPrice())
                         .rating(c.getRating())
                         .reviewCount(c.getReviewCount())
-                        .location(c.getUser().getLocation())
+                        .location(c.getLocation())
                         .build())
                 .toList();
     }
@@ -175,7 +175,7 @@ public class CoachServiceImpl implements CoachService {
                         .price(c.getPrice())
                         .rating(c.getRating())
                         .reviewCount(c.getReviewCount())
-                        .location(c.getUser().getLocation())
+                        .location(c.getLocation())
                         .build())
                 .toList();
     }
@@ -238,7 +238,7 @@ public class CoachServiceImpl implements CoachService {
                 .price(coach.getPrice())
                 .rating(coach.getRating())
                 .reviewCount(coach.getReviewCount())
-                .location(user.getLocation())
+                .location(coach.getLocation())
                 .build();
     }
 
