@@ -19,6 +19,7 @@ public class MailServiceImpl implements MailService {
         message.setTo(email);
         message.setSubject("Password Reset OTP");
         message.setText("Your OTP code is: " + otp);
+        message.setSubject("CẢM ƠN VÌ BẠN ĐÃ TRỞ LẠI VỚI CHÚNG TÔI");
 
         mailSender.send(message);
     }
