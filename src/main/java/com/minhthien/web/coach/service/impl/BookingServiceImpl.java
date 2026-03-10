@@ -13,6 +13,7 @@ import com.minhthien.web.coach.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -93,12 +94,26 @@ public class BookingServiceImpl implements BookingService {
                 .toList();
     }
 
+    @Transactional
     @Override
     public void cancelBooking(Long bookingId) {
+
+        String username = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User user = userRepository
+                .findByUsername(username)
+                .orElseThrow();
 
         Booking booking = bookingRepository
                 .findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!booking.getTrainee().getId().equals(user.getId())) {
+            throw new RuntimeException("You cannot cancel this booking");
+        }
 
         booking.setStatus(BookingStatus.CANCELLED);
 

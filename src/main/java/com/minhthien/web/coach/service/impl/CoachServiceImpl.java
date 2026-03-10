@@ -168,8 +168,17 @@ public class CoachServiceImpl implements CoachService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+
+
         reviewRepository.save(review);
 
+        Double avgRating = reviewRepository.getAverageRating(coach.getId());
+        Long reviewCount = reviewRepository.countByCoachId(coach.getId());
+
+        coach.setRating(avgRating != null ? avgRating : 0);
+        coach.setReviewCount(reviewCount != null ? reviewCount.intValue() : 0);
+
+        coachRepository.save(coach);
         return ReviewResponse.builder()
                 .userName(user.getFullName())
                 .avatar(user.getAvatarUrl())
@@ -250,6 +259,7 @@ public class CoachServiceImpl implements CoachService {
                         .rating(c.getRating())
                         .reviewCount(c.getReviewCount())
                         .location(c.getLocation())
+                        .bio(c.getBio())
                         .build())
                 .toList();
     }
@@ -269,6 +279,7 @@ public class CoachServiceImpl implements CoachService {
                         .rating(c.getRating())
                         .reviewCount(c.getReviewCount())
                         .location(c.getLocation())
+                        .bio(c.getBio())
                         .build())
                 .toList();
     }
