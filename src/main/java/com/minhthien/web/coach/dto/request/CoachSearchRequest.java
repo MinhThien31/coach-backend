@@ -10,6 +10,8 @@ public class CoachSearchRequest {
 
     private String keyword;
 
+    private String name;
+
     private Long categoryId;
 
     private String location;
