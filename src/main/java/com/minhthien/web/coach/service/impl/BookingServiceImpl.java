@@ -42,12 +42,24 @@ public class BookingServiceImpl implements BookingService {
                 .findById(request.getCoachId())
                 .orElseThrow(() -> new RuntimeException("Coach not found"));
 
+        boolean exists = bookingRepository.existsByCoachIdAndStartTimeAndStatusNot(
+                coach.getId(),
+                request.getStartTime(),
+                BookingStatus.CANCELLED
+        );
+
+        if (exists) {
+            throw new RuntimeException("This time slot already booked");
+        }
+
         Booking booking = Booking.builder()
                 .coach(coach)
                 .trainee(trainee)
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .price(coach.getPrice())
+                .type(request.getType())
+                .note(request.getNote())
                 .status(BookingStatus.PENDING)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -62,6 +74,8 @@ public class BookingServiceImpl implements BookingService {
                 .endTime(booking.getEndTime())
                 .price(booking.getPrice())
                 .status(booking.getStatus().name())
+                .note(booking.getNote())
+                .type(booking.getType())
                 .build();
     }
 

@@ -138,6 +138,7 @@ public class CoachServiceImpl implements CoachService {
                 .category(coach.getCategory().getName())
                 .location(coach.getLocation())
                 .price(coach.getPrice())
+                .teachingType(coach.getTeachingType().name())
                 .rating(rating != null ? rating : 0)
                 .students(students != null ? students : 0)
                 .totalSessions(sessions != null ? sessions : 0)
@@ -325,6 +326,7 @@ public class CoachServiceImpl implements CoachService {
         coach.setBio(request.getBio());
         coach.setAvatarUrl(avatarUrl);
         coach.setLocation(request.getLocation());
+        coach.setTeachingType(request.getTeachingType());
 
         coach.setRating(0.0);
         coach.setReviewCount(0);
@@ -344,6 +346,7 @@ public class CoachServiceImpl implements CoachService {
                 .bio(coach.getBio())
                 .reviewCount(coach.getReviewCount())
                 .location(coach.getLocation())
+                .teachingType(coach.getTeachingType().name())
                 .build();
     }
 
@@ -384,6 +387,9 @@ public class CoachServiceImpl implements CoachService {
 
             coach.setAvatarUrl(avatarUrl);
         }
+        if (request.getTeachingType() != null) {
+            coach.setTeachingType(request.getTeachingType());
+        }
 
         coachRepository.save(coach);
 
@@ -396,6 +402,7 @@ public class CoachServiceImpl implements CoachService {
                 .rating(coach.getRating())
                 .reviewCount(coach.getReviewCount())
                 .location(coach.getLocation())
+                .teachingType(coach.getTeachingType().name())
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.dto.request;
 
+import com.minhthien.web.coach.enums.CoachTeachingType;
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,6 +15,7 @@ public class UpdateCoachRequest {
 
     private String bio;
 
+    private CoachTeachingType teachingType;
     private String location;
     private MultipartFile avatar;
 }

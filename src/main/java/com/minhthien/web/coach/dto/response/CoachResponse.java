@@ -25,5 +25,7 @@ public class CoachResponse {
 
     private String bio;
 
+    private String teachingType;
+
     private String location;
 }

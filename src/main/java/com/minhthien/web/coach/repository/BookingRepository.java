@@ -1,6 +1,7 @@
 package com.minhthien.web.coach.repository;
 
 import com.minhthien.web.coach.entity.Booking;
+import com.minhthien.web.coach.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -23,4 +24,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT COUNT(b.id) FROM Booking b WHERE b.coach.id = :coachId")
     Long countSessionsByCoach(Long coachId);
+
+    boolean existsByCoachIdAndStartTimeAndStatusNot(
+            Long coachId,
+            LocalDateTime startTime,
+            BookingStatus status
+    );
 }

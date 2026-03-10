@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.dto.request;
 
+import com.minhthien.web.coach.enums.BookingType;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,4 +15,8 @@ public class BookingRequest {
     private LocalDateTime startTime;
 
     private LocalDateTime endTime;
+
+    private BookingType type;
+
+    private String note;
 }

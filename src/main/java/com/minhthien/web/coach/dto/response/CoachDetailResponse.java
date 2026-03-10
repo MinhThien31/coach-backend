@@ -33,6 +33,8 @@ public class CoachDetailResponse {
 
     private String bio;
 
+    private String teachingType;
+
     private List<String> specializations;
 
     private List<String> certificates;

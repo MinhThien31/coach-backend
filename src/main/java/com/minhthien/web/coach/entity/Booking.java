@@ -1,6 +1,7 @@
 package com.minhthien.web.coach.entity;
 
 import com.minhthien.web.coach.enums.BookingStatus;
+import com.minhthien.web.coach.enums.BookingType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,6 +36,12 @@ public class Booking {
 
     @Enumerated(EnumType.STRING)
     private BookingStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private BookingType type;   // ONLINE / OFFLINE
+
+    private String note;        // ghi chú cho coach
+
 
     private LocalDateTime createdAt;
 }

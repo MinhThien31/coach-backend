@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.entity;
 
+import com.minhthien.web.coach.enums.CoachTeachingType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -36,6 +37,9 @@ public class CoachProfile {
     private Integer responseRate;
 
     private Integer experienceYears;
+
+    @Enumerated(EnumType.STRING)
+    private CoachTeachingType teachingType;
 
     @Column(name = "location")
     private String location;

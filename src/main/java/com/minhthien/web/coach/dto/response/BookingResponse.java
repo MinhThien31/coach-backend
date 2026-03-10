@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.dto.response;
 
+import com.minhthien.web.coach.enums.BookingType;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,6 +23,10 @@ public class BookingResponse {
     private LocalDateTime endTime;
 
     private Double price;
+
+    private BookingType type;
+
+    private String note;
 
     private String status;
 }
