@@ -1,12 +1,7 @@
 package com.minhthien.web.coach.service.impl;
 
-import com.minhthien.web.coach.dto.request.CoachSearchRequest;
-import com.minhthien.web.coach.dto.request.CreateCoachRequest;
-import com.minhthien.web.coach.dto.request.UpdateCoachRequest;
-import com.minhthien.web.coach.dto.response.CoachDetailResponse;
-import com.minhthien.web.coach.dto.response.CoachResponse;
-import com.minhthien.web.coach.dto.response.CoachScheduleResponse;
-import com.minhthien.web.coach.dto.response.ReviewResponse;
+import com.minhthien.web.coach.dto.request.*;
+import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.*;
 import com.minhthien.web.coach.repository.*;
 import com.minhthien.web.coach.service.CoachService;
@@ -21,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -35,6 +31,8 @@ public class CoachServiceImpl implements CoachService {
     private final UserRepository userRepository;
     private final ImageService imageService;
     private final CategoryRepository categoryRepository;
+    private final BookingRepository bookingRepository;
+
 
     @Override
     public Page<CoachResponse> searchCoach(CoachSearchRequest request) {
@@ -123,6 +121,16 @@ public class CoachServiceImpl implements CoachService {
                         .build())
                 .toList();
 
+        Double rating = reviewRepository.getAverageRating(id);
+        if (rating == null) {
+            rating = 0.0;
+        }
+        Long students = bookingRepository.countStudentsByCoach(id);
+        if (students == null) students = 0L;
+
+        Long sessions = bookingRepository.countSessionsByCoach(id);
+        if (sessions == null) sessions = 0L;
+
         return CoachDetailResponse.builder()
                 .id(coach.getId())
                 .fullName(coach.getUser().getFullName())
@@ -130,15 +138,100 @@ public class CoachServiceImpl implements CoachService {
                 .category(coach.getCategory().getName())
                 .location(coach.getLocation())
                 .price(coach.getPrice())
-                .rating(coach.getRating())
-                .students(coach.getStudents())
-                .totalSessions(coach.getTotalSessions())
+                .rating(rating != null ? rating : 0)
+                .students(students != null ? students : 0)
+                .totalSessions(sessions != null ? sessions : 0)
                 .responseRate(coach.getResponseRate())
                 .bio(coach.getBio())
                 .specializations(specializations)
                 .certificates(certificates)
                 .schedules(schedules)
                 .reviews(reviews)
+                .build();
+    }
+
+    @Override
+    public ReviewResponse createReview(CreateReviewRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        CoachProfile coach = coachRepository.findById(request.getCoachId())
+                .orElseThrow(() -> new RuntimeException("Coach not found"));
+
+        Review review = Review.builder()
+                .coach(coach)
+                .user(user)
+                .rating(request.getRating())
+                .comment(request.getComment())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        reviewRepository.save(review);
+
+        return ReviewResponse.builder()
+                .userName(user.getFullName())
+                .avatar(user.getAvatarUrl())
+                .rating(review.getRating())
+                .comment(review.getComment())
+                .createdAt(review.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    public SpecializationResponse create(CreateSpecializationRequest request) {
+        CoachProfile coach = coachRepository.findById(request.getCoachId())
+                .orElseThrow();
+
+        CoachSpecialization specialization = CoachSpecialization.builder()
+                .coach(coach)
+                .name(request.getName())
+                .build();
+
+        specializationRepository.save(specialization);
+
+        return SpecializationResponse.builder()
+                .id(specialization.getId())
+                .name(specialization.getName())
+                .build();
+    }
+
+    @Override
+    public CertificateResponse createCertificate(CreateCertificateRequest request) {
+        CoachProfile coach = coachRepository.findById(request.getCoachId())
+                .orElseThrow();
+        CoachCertificate certificate =CoachCertificate.builder()
+                .coach(coach)
+                .name(request.getName())
+                .build();
+        certificateRepository.save(certificate);
+
+        return CertificateResponse.builder()
+                .id(certificate.getId())
+                .name(certificate.getName())
+                .build();
+    }
+
+    @Override
+    public ScheduleResponse createSchedule(CreateScheduleRequest request) {
+        CoachProfile coach = coachRepository.findById(request.getCoachId())
+                .orElseThrow(() -> new RuntimeException("Coach not found"));
+
+        CoachSchedule schedule = CoachSchedule.builder()
+                .coach(coach)
+                .dayOfWeek(request.getDayOfWeek())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .build();
+
+        scheduleRepository.save(schedule);
+
+        return ScheduleResponse.builder()
+                .id(schedule.getId())
+                .dayOfWeek(schedule.getDayOfWeek())
+                .startTime(schedule.getStartTime())
+                .endTime(schedule.getEndTime())
                 .build();
     }
 
@@ -237,6 +330,7 @@ public class CoachServiceImpl implements CoachService {
                 .category(category.getName())
                 .price(coach.getPrice())
                 .rating(coach.getRating())
+                .bio(coach.getBio())
                 .reviewCount(coach.getReviewCount())
                 .location(coach.getLocation())
                 .build();

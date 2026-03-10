@@ -23,5 +23,7 @@ public class CoachResponse {
 
     private Integer reviewCount;
 
+    private String bio;
+
     private String location;
 }

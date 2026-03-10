@@ -1,8 +1,6 @@
 package com.minhthien.web.coach.controller;
 
-import com.minhthien.web.coach.dto.request.CoachSearchRequest;
-import com.minhthien.web.coach.dto.request.CreateCoachRequest;
-import com.minhthien.web.coach.dto.request.UpdateCoachRequest;
+import com.minhthien.web.coach.dto.request.*;
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.service.CoachService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -31,7 +29,7 @@ public class CoachController {
                 .build();
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/coachDetail/{id}")
     public ApiResponse<CoachDetailResponse> getCoachDetail(
             @PathVariable Long id
     ) {
@@ -82,4 +80,40 @@ public class CoachController {
                 .data(coachService.updateCoach(id, request))
                 .build();
     }
+
+    @PostMapping("/review")
+    public ApiResponse<ReviewResponse> createReview(@RequestBody CreateReviewRequest request) {
+
+        return ApiResponse.<ReviewResponse>builder()
+                .data(coachService.createReview(request))
+                .build();
+    }
+
+    @PostMapping("/create/specialization")
+    public ApiResponse<SpecializationResponse> create(
+            @RequestBody CreateSpecializationRequest request) {
+
+        return ApiResponse.<SpecializationResponse>builder()
+                .data(coachService.create(request))
+                .build();
+    }
+
+    @PostMapping("/create/certificate")
+    public ApiResponse<CertificateResponse> createCertificate(
+            @RequestBody CreateCertificateRequest request) {
+
+        return ApiResponse.<CertificateResponse>builder()
+                .data(coachService.createCertificate(request))
+                .build();
+    }
+
+    @PostMapping("/create/Schedule")
+    public ApiResponse<ScheduleResponse> createSchedule(
+            @RequestBody CreateScheduleRequest request) {
+
+        return ApiResponse.<ScheduleResponse>builder()
+                .data(coachService.createSchedule(request))
+                .build();
+    }
+
 }

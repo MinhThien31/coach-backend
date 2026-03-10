@@ -25,9 +25,9 @@ public class CoachDetailResponse {
 
     private Double rating;
 
-    private Integer students;
+    private Long students;
 
-    private Integer totalSessions;
+    private Long totalSessions;
 
     private Integer responseRate;
 
