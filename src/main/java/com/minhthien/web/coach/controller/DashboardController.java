@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.controller;
 
+import com.minhthien.web.coach.dto.response.CoachDashboardResponse;
 import com.minhthien.web.coach.dto.response.DashboardStatsResponse;
 import com.minhthien.web.coach.service.DashboardService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -16,8 +17,13 @@ public class DashboardController {
 
     private final DashboardService dashboardService;
 
-    @GetMapping("/stats")
+    @GetMapping("/traines/stats")
     public DashboardStatsResponse stats() {
         return dashboardService.getStats();
+    }
+
+    @GetMapping("/coach/stats")
+    public CoachDashboardResponse getDashboard() {
+        return dashboardService.getCoachDashboard();
     }
 }

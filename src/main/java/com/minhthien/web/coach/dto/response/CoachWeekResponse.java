@@ -1,24 +1,20 @@
 package com.minhthien.web.coach.dto.response;
 
 import com.minhthien.web.coach.enums.BookingStatus;
-import com.minhthien.web.coach.enums.BookingType;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Data
 @Builder
-public class BookingListResponse {
+@NoArgsConstructor
+@AllArgsConstructor
+public class CoachWeekResponse {
 
-    private Long id;
-
-    private String coachName;
+    private Long bookingId;
 
     private String traineeName;
-
-    private String sport;
 
     private LocalDate date;
 
@@ -26,9 +22,8 @@ public class BookingListResponse {
 
     private LocalTime endTime;
 
-    private BookingType type;
-
-    private Double price;
-
     private BookingStatus status;
+
+    private String location;
+
 }

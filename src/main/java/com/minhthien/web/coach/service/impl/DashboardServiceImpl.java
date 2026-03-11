@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.service.impl;
 
+import com.minhthien.web.coach.dto.response.CoachDashboardResponse;
 import com.minhthien.web.coach.dto.response.DashboardStatsResponse;
 import com.minhthien.web.coach.entity.Booking;
 import com.minhthien.web.coach.entity.User;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -58,6 +60,59 @@ public class DashboardServiceImpl implements DashboardService {
                 .completedSessions(completed)
                 .upcomingSessions(upcoming)
                 .monthlySpending(spending)
+                .build();
+    }
+
+    @Override
+    public CoachDashboardResponse getCoachDashboard() {
+        String username = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User coach = userRepository
+                .findByUsername(username)
+                .orElseThrow();
+
+        LocalDate today = LocalDate.now();
+
+        DayOfWeek todayWeek = today.getDayOfWeek();
+
+        LocalDate startOfWeek = today.with(DayOfWeek.MONDAY);
+        LocalDate endOfWeek = today.with(DayOfWeek.SUNDAY);
+
+        long todaySessions =
+                bookingRepository.countTodaySessions(
+                        coach.getId(),
+                        todayWeek,
+                        today
+                );
+
+        long weekSessions =
+                bookingRepository.countWeekSessions(
+                        coach.getId(),
+                        startOfWeek,
+                        endOfWeek
+                );
+
+        double weekRevenue =
+                bookingRepository.sumWeekRevenue(
+                        coach.getId(),
+                        startOfWeek,
+                        endOfWeek
+                );
+
+        long pendingBookings =
+                bookingRepository.countByCoachIdAndStatus(
+                        coach.getId(),
+                        BookingStatus.PENDING
+                );
+
+        return CoachDashboardResponse.builder()
+                .todaySessions(todaySessions)
+                .weekSessions(weekSessions)
+                .weekRevenue(weekRevenue)
+                .pendingBookings(pendingBookings)
                 .build();
     }
 }

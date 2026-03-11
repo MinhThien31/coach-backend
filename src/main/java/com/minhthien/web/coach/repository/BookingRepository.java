@@ -78,4 +78,41 @@ WHERE b.coach.id = :coachId
 AND LOWER(tp.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
 """)
     List<TraineeProfile> searchBookedTrainees(Long coachId, String keyword);
+
+    List<Booking> findByCoachId(Long coachId);
+
+    List<Booking> findByCoachIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+            Long coachId,
+            LocalDate endDate,
+            LocalDate startDate);
+
+    @Query("""
+SELECT COUNT(b)
+FROM Booking b
+WHERE b.coach.id = :coachId
+AND b.dayOfWeek = :dayOfWeek
+AND :today BETWEEN b.startDate AND b.endDate
+""")
+    long countTodaySessions(Long coachId, DayOfWeek dayOfWeek, LocalDate today);
+
+    @Query("""
+SELECT COUNT(b)
+FROM Booking b
+WHERE b.coach.id = :coachId
+AND :startOfWeek <= b.endDate
+AND :endOfWeek >= b.startDate
+""")
+    long countWeekSessions(Long coachId, LocalDate startOfWeek, LocalDate endOfWeek);
+
+    @Query("""
+SELECT COALESCE(SUM(b.price),0)
+FROM Booking b
+WHERE b.coach.id = :coachId
+AND :startOfWeek <= b.endDate
+AND :endOfWeek >= b.startDate
+AND b.status = 'COMPLETED'
+""")
+    double sumWeekRevenue(Long coachId, LocalDate startOfWeek, LocalDate endOfWeek);
+
+    long countByCoachIdAndStatus(Long coachId, BookingStatus status);
 }

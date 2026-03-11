@@ -45,6 +45,7 @@ public class Booking {
     @JsonFormat(pattern = "HH:mm:ss")
     private LocalTime endTime;
 
+    private String location;
 
     private Double price;
 
