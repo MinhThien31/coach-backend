@@ -42,11 +42,13 @@ public class BookingServiceImpl implements BookingService {
                 .findById(request.getCoachId())
                 .orElseThrow(() -> new RuntimeException("Coach not found"));
 
-        boolean exists = bookingRepository.existsByCoachIdAndStartTimeAndStatusNot(
-                coach.getId(),
-                request.getStartTime(),
-                BookingStatus.CANCELLED
-        );
+        boolean exists = bookingRepository
+                .existsByCoachIdAndDayOfWeekAndStartTimeAndStatusNot(
+                        coach.getId(),
+                        request.getDayOfWeek(),
+                        request.getStartTime(),
+                        BookingStatus.CANCELLED
+                );
 
         if (exists) {
             throw new RuntimeException("This time slot already booked");
@@ -55,6 +57,9 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = Booking.builder()
                 .coach(coach)
                 .trainee(trainee)
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .dayOfWeek(request.getDayOfWeek())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .price(coach.getPrice())
@@ -70,16 +75,17 @@ public class BookingServiceImpl implements BookingService {
                 .id(booking.getId())
                 .coachName(coach.getUser().getFullName())
                 .traineeName(trainee.getFullName())
+                .startDate(booking.getStartDate())
+                .endDate(booking.getEndDate())
+                .dayOfWeek(booking.getDayOfWeek())
                 .startTime(booking.getStartTime())
                 .endTime(booking.getEndTime())
                 .price(booking.getPrice())
                 .status(booking.getStatus().name())
-                .note(booking.getNote())
                 .type(booking.getType())
+                .note(booking.getNote())
                 .build();
     }
-
-
 
     @Override
     public List<BookingResponse> myBookings() {
@@ -100,10 +106,18 @@ public class BookingServiceImpl implements BookingService {
                         .id(b.getId())
                         .coachName(b.getCoach().getUser().getFullName())
                         .traineeName(trainee.getFullName())
+
+                        .startDate(b.getStartDate())
+                        .endDate(b.getEndDate())
+                        .dayOfWeek(b.getDayOfWeek())
+
                         .startTime(b.getStartTime())
                         .endTime(b.getEndTime())
+
                         .price(b.getPrice())
                         .status(b.getStatus().name())
+                        .note(b.getNote())
+                        .type(b.getType())
                         .build())
                 .toList();
     }

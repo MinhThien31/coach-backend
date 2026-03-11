@@ -1,6 +1,10 @@
 package com.minhthien.web.coach.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Data
 public class CreateScheduleRequest {
@@ -9,8 +13,13 @@ public class CreateScheduleRequest {
 
     private String dayOfWeek;
 
-    private String startTime;
+    private LocalDate startDate;
+    private LocalDate endDate;
 
-    private String endTime;
+    @JsonFormat(pattern = "HH:mm:ss")
+    private LocalTime startTime;
+
+    @JsonFormat(pattern = "HH:mm:ss")
+    private LocalTime endTime;
 
 }

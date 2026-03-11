@@ -16,7 +16,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -103,9 +105,9 @@ public class CoachServiceImpl implements CoachService {
                 .findByCoachId(id)
                 .stream()
                 .map(s -> CoachScheduleResponse.builder()
-                        .dayOfWeek(s.getDayOfWeek())
-                        .startTime(s.getStartTime())
-                        .endTime(s.getEndTime())
+                        .dayOfWeek(s.getDayOfWeek().name())
+                        .startTime(s.getStartTime().toString())
+                        .endTime(s.getEndTime().toString())
                         .build())
                 .toList();
 
@@ -225,12 +227,15 @@ public class CoachServiceImpl implements CoachService {
 
     @Override
     public ScheduleResponse createSchedule(CreateScheduleRequest request) {
+
         CoachProfile coach = coachRepository.findById(request.getCoachId())
                 .orElseThrow(() -> new RuntimeException("Coach not found"));
 
         CoachSchedule schedule = CoachSchedule.builder()
                 .coach(coach)
-                .dayOfWeek(request.getDayOfWeek())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .dayOfWeek(DayOfWeek.valueOf(request.getDayOfWeek()))
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .build();
@@ -239,12 +244,11 @@ public class CoachServiceImpl implements CoachService {
 
         return ScheduleResponse.builder()
                 .id(schedule.getId())
-                .dayOfWeek(schedule.getDayOfWeek())
-                .startTime(schedule.getStartTime())
-                .endTime(schedule.getEndTime())
+                .dayOfWeek(schedule.getDayOfWeek().name())
+                .startTime(schedule.getStartTime().toString())
+                .endTime(schedule.getEndTime().toString())
                 .build();
     }
-
     @Override
     public List<CoachResponse> getFeaturedCoaches() {
 
@@ -281,6 +285,7 @@ public class CoachServiceImpl implements CoachService {
                         .reviewCount(c.getReviewCount())
                         .location(c.getLocation())
                         .bio(c.getBio())
+                        .teachingType(c.getTeachingType())
                         .build())
                 .toList();
     }
@@ -292,9 +297,9 @@ public class CoachServiceImpl implements CoachService {
                 .findByCoachId(coachId)
                 .stream()
                 .map(s -> CoachScheduleResponse.builder()
-                        .dayOfWeek(s.getDayOfWeek())
-                        .startTime(s.getStartTime())
-                        .endTime(s.getEndTime())
+                        .dayOfWeek(s.getDayOfWeek().name())
+                        .startTime(s.getStartTime().toString())
+                        .endTime(s.getEndTime().toString())
                         .build())
                 .toList();
     }
@@ -346,7 +351,7 @@ public class CoachServiceImpl implements CoachService {
                 .bio(coach.getBio())
                 .reviewCount(coach.getReviewCount())
                 .location(coach.getLocation())
-                .teachingType(coach.getTeachingType().name())
+                .teachingType(coach.getTeachingType())
                 .build();
     }
 
@@ -402,7 +407,7 @@ public class CoachServiceImpl implements CoachService {
                 .rating(coach.getRating())
                 .reviewCount(coach.getReviewCount())
                 .location(coach.getLocation())
-                .teachingType(coach.getTeachingType().name())
+                .teachingType(coach.getTeachingType())
                 .build();
     }
 }

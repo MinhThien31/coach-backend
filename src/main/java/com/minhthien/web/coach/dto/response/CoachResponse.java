@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.dto.response;
 
+import com.minhthien.web.coach.enums.CoachTeachingType;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,7 +26,7 @@ public class CoachResponse {
 
     private String bio;
 
-    private String teachingType;
+    private CoachTeachingType teachingType;
 
     private String location;
 }

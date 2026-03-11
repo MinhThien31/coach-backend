@@ -1,10 +1,15 @@
 package com.minhthien.web.coach.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "coach_schedules")
@@ -21,9 +26,17 @@ public class CoachSchedule {
     @ManyToOne
     private CoachProfile coach;
 
-    private String dayOfWeek;
+    private LocalDate startDate;
 
-    private String startTime;
+    private LocalDate endDate;
 
-    private String endTime;
+    @Enumerated(EnumType.STRING)
+    private DayOfWeek dayOfWeek;
+
+    @JsonFormat(pattern = "HH:mm:ss")
+    private LocalTime startTime;
+
+    @JsonFormat(pattern = "HH:mm:ss")
+    private LocalTime endTime;
 }
+
