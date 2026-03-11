@@ -1,6 +1,7 @@
 package com.minhthien.web.coach.repository;
 
 import com.minhthien.web.coach.entity.Booking;
+import com.minhthien.web.coach.entity.TraineeProfile;
 import com.minhthien.web.coach.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -68,4 +69,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             Long traineeId,
             LocalDate now
     );
+
+    @Query("""
+SELECT DISTINCT tp
+FROM Booking b
+JOIN TraineeProfile tp ON tp.user.id = b.trainee.id
+WHERE b.coach.id = :coachId
+AND LOWER(tp.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+""")
+    List<TraineeProfile> searchBookedTrainees(Long coachId, String keyword);
 }
