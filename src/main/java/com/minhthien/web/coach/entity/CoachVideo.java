@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.entity;
 
+import com.minhthien.web.coach.enums.VideoType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -28,6 +29,12 @@ public class CoachVideo {
     private String resolution;
 
     private LocalDate uploadDate;
+
+    @Enumerated(EnumType.STRING)
+    private VideoType videoType;
+
+    @Column(name = "view_count")
+    private Long viewCount = 0L;
 
     private String tags;
 

@@ -2,12 +2,13 @@ package com.minhthien.web.coach.service.impl;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.minhthien.web.coach.entity.Category;
-import com.minhthien.web.coach.entity.CoachProfile;
-import com.minhthien.web.coach.entity.CoachVideo;
-import com.minhthien.web.coach.entity.User;
+import com.minhthien.web.coach.dto.response.SubmissionItemResponse;
+import com.minhthien.web.coach.dto.response.VideoDetailResponse;
+import com.minhthien.web.coach.entity.*;
+import com.minhthien.web.coach.enums.VideoType;
 import com.minhthien.web.coach.repository.CoachRepository;
 import com.minhthien.web.coach.repository.CoachVideoRepository;
+import com.minhthien.web.coach.repository.TraineeSubmissionRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.CoachVideoService;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +26,11 @@ public class CoachVideoServiceImpl implements CoachVideoService {
     private final CoachVideoRepository coachVideoRepository;
     private final UserRepository userRepository;
     private final CoachRepository coachRepository;
+    private final TraineeSubmissionRepository traineeSubmissionRepository;
 
 
     @Override
-    public CoachVideo uploadVideo(Long coachId, String title, String format, String resolution, List<String> tags, MultipartFile file) {
+    public CoachVideo uploadVideo(Long coachId, String title, String format, String resolution, List<String> tags,VideoType videoType, MultipartFile file) {
         try {
 
             Map uploadResult = cloudinary.uploader().upload(
@@ -59,6 +61,7 @@ public class CoachVideoServiceImpl implements CoachVideoService {
                     .tags(String.join(",", tags))
                     .category(category)
                     .coach(coach)
+                    .videoType(videoType)
                     .build();
 
             return coachVideoRepository.save(video);
@@ -67,4 +70,69 @@ public class CoachVideoServiceImpl implements CoachVideoService {
             throw new RuntimeException("Upload video failed");
         }
     }
+
+    @Override
+    public List<CoachVideo> getVideosByCoach(Long coachId) {
+        return coachVideoRepository.findByCoachId(coachId);
+    }
+
+    @Override
+    public VideoDetailResponse getVideoDetail(Long videoId) {
+
+        CoachVideo video = coachVideoRepository.findById(videoId)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
+
+        List<TraineeSubmission> submissions =
+                traineeSubmissionRepository.findByCoachVideoId(videoId);
+
+        List<SubmissionItemResponse> submissionList =
+                submissions.stream()
+                        .map(s -> SubmissionItemResponse.builder()
+                                .submissionId(s.getId())
+                                .traineeName(s.getTrainee().getFullName())
+                                .avatar(s.getTrainee().getAvatarUrl())
+                                .submittedAt(s.getSubmittedAt())
+                                .score(s.getTotalScore())
+                                .status(s.getStatus() != null ? s.getStatus().name() : "PENDING")
+                                .build())
+                        .toList();
+
+        return VideoDetailResponse.builder()
+                .videoId(video.getId())
+                .title(video.getTitle())
+                .category(video.getCategory().getName())
+                .format(video.getFormat())
+                .size(video.getSize())
+                .resolution(video.getResolution())
+                .uploadDate(video.getUploadDate())
+                .tags(
+                        video.getTags() != null
+                                ? List.of(video.getTags().split(","))
+                                : List.of()
+                )
+                .submissions(submissionList)
+                .build();
+    }
+
+    @Override
+    public List<CoachVideo> searchVideos(String keyword, VideoType type, Long coachId) {
+        return coachVideoRepository.searchVideos(
+                keyword,
+                type,
+                coachId
+        );
+    }
+
+    @Override
+    public CoachVideo increaseView(Long videoId) {
+        CoachVideo video = coachVideoRepository.findById(videoId)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
+
+        Long currentViews = video.getViewCount() == null ? 0 : video.getViewCount();
+
+        video.setViewCount(currentViews + 1);
+
+        return coachVideoRepository.save(video);
+    }
+
 }

@@ -2,11 +2,14 @@ package com.minhthien.web.coach.controller;
 
 import com.minhthien.web.coach.dto.response.CoachDashboardResponse;
 import com.minhthien.web.coach.dto.response.DashboardStatsResponse;
+import com.minhthien.web.coach.dto.response.VideoCoachDashboardResponse;
 import com.minhthien.web.coach.service.DashboardService;
+import com.minhthien.web.coach.service.VideoDashboard;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+    private final VideoDashboard videoDashboard;
 
     @GetMapping("/traines/stats")
     public DashboardStatsResponse stats() {
@@ -25,5 +29,12 @@ public class DashboardController {
     @GetMapping("/coach/stats")
     public CoachDashboardResponse getDashboard() {
         return dashboardService.getCoachDashboard();
+    }
+
+    @GetMapping("/video/coach/dashboard")
+    public VideoCoachDashboardResponse getDashboard(
+            @RequestParam Long coachId
+    ) {
+        return videoDashboard.getCoachDashboard(coachId);
     }
 }
