@@ -5,13 +5,13 @@ import com.minhthien.web.coach.enums.SubmissionStatus;
 import com.minhthien.web.coach.enums.VideoType;
 import com.minhthien.web.coach.repository.CoachVideoRepository;
 import com.minhthien.web.coach.repository.TraineeSubmissionRepository;
-import com.minhthien.web.coach.service.VideoDashboard;
+import com.minhthien.web.coach.service.VideoDashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class VideoDashboardImpl implements VideoDashboard {
+public class VideoDashboardServiceImpl implements VideoDashboardService {
 
     private final CoachVideoRepository coachVideoRepository;
     private final TraineeSubmissionRepository traineeSubmissionRepository;
