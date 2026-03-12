@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/videos")
+@RequestMapping("/api/trainess/videos")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
 public class VideoController {
