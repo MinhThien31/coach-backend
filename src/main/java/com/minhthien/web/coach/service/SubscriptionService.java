@@ -16,4 +16,6 @@ public interface SubscriptionService {
 
     SubscriptionChangeResponse changePlan(Long currentUserId, ChangeSubscriptionPlanRequest request);
 
+    SubscriptionChangeResponse changeCoachPlan(Long currentUserId, ChangeSubscriptionPlanRequest request);
+
 }

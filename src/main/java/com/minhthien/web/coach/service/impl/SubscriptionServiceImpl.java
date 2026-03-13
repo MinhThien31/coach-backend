@@ -119,6 +119,14 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public SubscriptionChangeResponse changeCoachPlan(Long currentUserId, ChangeSubscriptionPlanRequest request) {
+        User user = getCurrentUser(currentUserId);
+        validateUserRole(user, UserRole.COACHES);
+        return changePlan(currentUserId, request);
+    }
+
 
     private List<SubscriptionPlanCardResponse> buildTraineePlans(User user, SubscriptionBillingCycle billingCycle) {
         PlatformSettings settings = getOrCreateSettings();

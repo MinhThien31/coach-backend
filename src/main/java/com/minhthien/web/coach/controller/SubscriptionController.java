@@ -54,6 +54,19 @@ public class SubscriptionController {
         );
     }
 
+    @PutMapping("/coach/plan")
+    public ResponseEntity<ApiResponse<SubscriptionChangeResponse>> changeCoachPlan(
+            @AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody ChangeSubscriptionPlanRequest request
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Coach subscription updated successfully",
+                        subscriptionService.changeCoachPlan(currentUser.getId(), request)
+                )
+        );
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<CurrentSubscriptionResponse>> getCurrentSubscription(
             @AuthenticationPrincipal User currentUser
