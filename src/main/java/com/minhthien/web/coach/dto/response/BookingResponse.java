@@ -41,4 +41,12 @@ public class BookingResponse {
     private String note;
 
     private String status;
+
+    private Boolean paymentSettled;
+
+    private Long settledAmount;
+
+    private Long adminCommissionAmount;
+
+    private Long coachPayoutAmount;
 }

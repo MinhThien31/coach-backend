@@ -5,13 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubscriptionChangeResponse {
-    private String message;
-    private CurrentSubscriptionResponse subscription;
-    private Long chargedAmount;
-    private Long walletBalanceAfter;
+public class AdminWalletOverviewResponse {
+    private WalletResponse wallet;
+    private long totalTransactions;
+    private List<WalletTransactionResponse> recentTransactions;
 }

@@ -36,6 +36,16 @@ public class BookingController {
                 .build();
     }
 
+    @PutMapping("/{id}/complete")
+    public ApiResponse<BookingResponse> completeBooking(
+            @PathVariable Long id
+    ) {
+
+        return ApiResponse.<BookingResponse>builder()
+                .data(bookingService.completeBooking(id))
+                .build();
+    }
+
     @PutMapping("/{id}/cancel")
     public ApiResponse<String> cancelBooking(
             @PathVariable Long id

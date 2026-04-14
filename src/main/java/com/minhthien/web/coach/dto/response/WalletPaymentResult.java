@@ -9,9 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubscriptionChangeResponse {
-    private String message;
-    private CurrentSubscriptionResponse subscription;
+public class WalletPaymentResult {
     private Long chargedAmount;
     private Long walletBalanceAfter;
+    private Long adminWalletBalanceAfter;
 }

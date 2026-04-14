@@ -8,6 +8,7 @@ import com.minhthien.web.coach.dto.response.AdminPlatformSettingsResponse;
 import com.minhthien.web.coach.dto.response.AdminSubscriptionPricesResponse;
 import com.minhthien.web.coach.entity.PlatformSettings;
 import com.minhthien.web.coach.repository.PlatformSettingsRepository;
+import com.minhthien.web.coach.repository.WalletRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.AdminPlatformSettingsService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class AdminPlatformSettingsServiceImpl implements AdminPlatformSettingsSe
 
     private final PlatformSettingsRepository platformSettingsRepository;
     private final UserRepository userRepository;
+    private final WalletRepository walletRepository;
 
     @Value("${app.platform.display-name:CoachFinder}")
     private String platformDisplayName;
@@ -131,6 +133,9 @@ public class AdminPlatformSettingsServiceImpl implements AdminPlatformSettingsSe
                 .timezone(platformTimezone)
                 .totalUsers(userRepository.count())
                 .monthlyUptime(monthlyUptime)
+                .adminWalletBalance(walletRepository.findByUserRole(com.minhthien.web.coach.enums.UserRole.ADMIN)
+                        .map(com.minhthien.web.coach.entity.Wallet::getBalance)
+                        .orElse(0L))
                 .lastUpdatedAt(settings.getUpdatedAt())
                 .build();
     }

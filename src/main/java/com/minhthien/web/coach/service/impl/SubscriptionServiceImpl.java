@@ -16,6 +16,7 @@ import com.minhthien.web.coach.repository.TraineeProfileRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.repository.UserSubscriptionRepository;
 import com.minhthien.web.coach.service.SubscriptionService;
+import com.minhthien.web.coach.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final PlatformSettingsRepository platformSettingsRepository;
     private final TraineeProfileRepository traineeProfileRepository;
+    private final WalletService walletService;
 
     @Override
     @Transactional(readOnly = true)
@@ -98,6 +100,13 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         Long monthlyPrice = getMonthlyPrice(user.getRole(), request.getPlanCode(), settings);
         Long billingPrice = calculateBillingPrice(monthlyPrice, billingCycle);
 
+        WalletPaymentResult walletPaymentResult = walletService.processSubscriptionPurchase(
+                user,
+                billingPrice,
+                buildWalletPurchaseDescription(user.getRole(), request.getPlanCode(), billingCycle),
+                request.getPlanCode().name() + "-" + billingCycle.name()
+        );
+
         UserSubscription subscription = userSubscriptionRepository.findByUserId(user.getId())
                 .orElseGet(() -> UserSubscription.builder()
                         .user(user)
@@ -116,6 +125,8 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return SubscriptionChangeResponse.builder()
                 .message(buildChangeMessage(user.getRole(), request.getPlanCode()))
                 .subscription(buildCurrentSubscription(user, savedSubscription))
+                .chargedAmount(walletPaymentResult.getChargedAmount())
+                .walletBalanceAfter(walletPaymentResult.getWalletBalanceAfter())
                 .build();
     }
 
@@ -514,6 +525,15 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             case PRO -> 1;
             case PREMIUM -> 2;
         };
+    }
+
+    private String buildWalletPurchaseDescription(
+            UserRole userRole,
+            SubscriptionPlanCode planCode,
+            SubscriptionBillingCycle billingCycle
+    ) {
+        String audience = userRole == UserRole.COACHES ? "Coach" : "Trainee";
+        return "Mua gói " + getDisplayName(userRole, planCode) + " cho " + audience + " (" + billingCycle.name() + ")";
     }
 
     private String buildChangeMessage(UserRole userRole, SubscriptionPlanCode planCode) {

@@ -57,7 +57,16 @@ public class Booking {
 
     private String note;        // ghi chú cho coach
 
+    @Builder.Default
+    private Boolean paymentSettled = false;
 
+    private Long settledAmount;
+
+    private Long adminCommissionAmount;
+
+    private Long coachPayoutAmount;
+
+    private LocalDateTime settledAt;
 
     private LocalDateTime createdAt;
 }

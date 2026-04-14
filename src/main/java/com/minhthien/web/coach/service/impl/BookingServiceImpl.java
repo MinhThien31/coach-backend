@@ -2,6 +2,7 @@ package com.minhthien.web.coach.service.impl;
 
 import com.minhthien.web.coach.dto.request.BookingRequest;
 import com.minhthien.web.coach.dto.response.BookingResponse;
+import com.minhthien.web.coach.dto.response.BookingSettlementResult;
 import com.minhthien.web.coach.entity.Booking;
 import com.minhthien.web.coach.entity.CoachProfile;
 import com.minhthien.web.coach.entity.User;
@@ -10,6 +11,7 @@ import com.minhthien.web.coach.repository.BookingRepository;
 import com.minhthien.web.coach.repository.CoachRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.BookingService;
+import com.minhthien.web.coach.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final CoachRepository coachRepository;
     private final UserRepository userRepository;
+    private final WalletService walletService;
 
     @Override
     public BookingResponse createBooking(BookingRequest request) {
@@ -66,25 +69,12 @@ public class BookingServiceImpl implements BookingService {
                 .type(request.getType())
                 .note(request.getNote())
                 .status(BookingStatus.PENDING)
+                .paymentSettled(false)
                 .createdAt(LocalDateTime.now())
                 .build();
 
         bookingRepository.save(booking);
-
-        return BookingResponse.builder()
-                .id(booking.getId())
-                .coachName(coach.getUser().getFullName())
-                .traineeName(trainee.getFullName())
-                .startDate(booking.getStartDate())
-                .endDate(booking.getEndDate())
-                .dayOfWeek(booking.getDayOfWeek())
-                .startTime(booking.getStartTime())
-                .endTime(booking.getEndTime())
-                .price(booking.getPrice())
-                .status(booking.getStatus().name())
-                .type(booking.getType())
-                .note(booking.getNote())
-                .build();
+        return mapBookingResponse(booking);
     }
 
     @Override
@@ -102,24 +92,47 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository
                 .findByTraineeId(trainee.getId())
                 .stream()
-                .map(b -> BookingResponse.builder()
-                        .id(b.getId())
-                        .coachName(b.getCoach().getUser().getFullName())
-                        .traineeName(trainee.getFullName())
-
-                        .startDate(b.getStartDate())
-                        .endDate(b.getEndDate())
-                        .dayOfWeek(b.getDayOfWeek())
-
-                        .startTime(b.getStartTime())
-                        .endTime(b.getEndTime())
-
-                        .price(b.getPrice())
-                        .status(b.getStatus().name())
-                        .note(b.getNote())
-                        .type(b.getType())
-                        .build())
+                .map(this::mapBookingResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse completeBooking(Long bookingId) {
+        String username = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository
+                .findByUsername(username)
+                .orElseThrow();
+
+        Booking booking = bookingRepository
+                .findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!booking.getCoach().getUser().getId().equals(currentUser.getId())
+                && currentUser.getRole() != com.minhthien.web.coach.enums.UserRole.ADMIN) {
+            throw new RuntimeException("You cannot complete this booking");
+        }
+
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new RuntimeException("Cancelled booking cannot be completed");
+        }
+
+        if (!Boolean.TRUE.equals(booking.getPaymentSettled())) {
+            BookingSettlementResult settlementResult = walletService.settleBookingPayment(booking);
+            booking.setPaymentSettled(true);
+            booking.setSettledAmount(settlementResult.getChargedAmount());
+            booking.setAdminCommissionAmount(settlementResult.getAdminCommissionAmount());
+            booking.setCoachPayoutAmount(settlementResult.getCoachPayoutAmount());
+            booking.setSettledAt(LocalDateTime.now());
+        }
+
+        booking.setStatus(BookingStatus.COMPLETED);
+        bookingRepository.save(booking);
+        return mapBookingResponse(booking);
     }
 
     @Transactional
@@ -144,7 +157,27 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
-
         bookingRepository.save(booking);
+    }
+
+    private BookingResponse mapBookingResponse(Booking booking) {
+        return BookingResponse.builder()
+                .id(booking.getId())
+                .coachName(booking.getCoach().getUser().getFullName())
+                .traineeName(booking.getTrainee().getFullName())
+                .startDate(booking.getStartDate())
+                .endDate(booking.getEndDate())
+                .dayOfWeek(booking.getDayOfWeek())
+                .startTime(booking.getStartTime())
+                .endTime(booking.getEndTime())
+                .price(booking.getPrice())
+                .status(booking.getStatus().name())
+                .type(booking.getType())
+                .note(booking.getNote())
+                .paymentSettled(booking.getPaymentSettled())
+                .settledAmount(booking.getSettledAmount())
+                .adminCommissionAmount(booking.getAdminCommissionAmount())
+                .coachPayoutAmount(booking.getCoachPayoutAmount())
+                .build();
     }
 }

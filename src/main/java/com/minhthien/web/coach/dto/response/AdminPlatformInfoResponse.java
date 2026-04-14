@@ -18,5 +18,6 @@ public class AdminPlatformInfoResponse {
     private String timezone;
     private Long totalUsers;
     private Double monthlyUptime;
+    private Long adminWalletBalance;
     private LocalDateTime lastUpdatedAt;
 }
