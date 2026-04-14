@@ -1,25 +1,56 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: coach-mysql
-    restart: always
+  mysql-container:
+    image: mysql:8
+    container_name: mysql-container
     environment:
       MYSQL_ROOT_PASSWORD: 12345
       MYSQL_DATABASE: coach
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
-    command: --default-authentication-plugin=mysql_native_password
+      - mysql_data:/var/lib/mysql
 
-  backend:
+  coach-backend:
     build: .
     container_name: coach-backend
-    restart: always
     depends_on:
-      - mysql
+      - mysql-container
     ports:
       - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-container:3306/coach?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 12345
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "true"
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+
+      APP_JWT_SECRET: dGFsZW50YnJpZGdlc2VjcmV0a2V5Zm9yandiYXNlNjRlbmNvZGVkc3RyaW5nMTIzNDU2Nzg5MA==
+      APP_JWT_EXPIRATION_MS: 86400000
+
+      CLOUDINARY_CLOUD_NAME: dzfgq2n19
+      CLOUDINARY_API_KEY: 922436613794848
+      CLOUDINARY_API_SECRET: 08Xv8-w4q0AH9IPY1PdpMhA5TKA
+
+      SPRING_MAIL_HOST: smtp.gmail.com
+      SPRING_MAIL_PORT: 587
+      SPRING_MAIL_USERNAME: minhthieen0@gmail.com
+      SPRING_MAIL_PASSWORD: lewijhmkwqfyhzfz
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+
+      GOOGLE_CLIENT_ID: 798255039135-0o8kh6bhfq33qkjehg87d8q7uav28tf7.apps.googleusercontent.com
+      FACEBOOK_APP_ID: 26103012215974574
+      FACEBOOK_APP_SECRET: 868028ffa68aaad2589e459881bf003c
+
+      PAYOS_CLIENT_ID: 27dff6c5-5a86-4501-aacb-76216b939709
+      PAYOS_API_KEY: 553a0226-28df-4fe7-bfe8-dbf17ed7fa1d
+      PAYOS_CHECKSUM_KEY: bc53f592b2ebb7dab8fe6c6bb22870182e33a131381a25e668c1bdab2b06f2f9
+      PAYOS_BASE_URL: https://api-merchant.payos.vn
+      PAYOS_RETURN_URL: http://localhost:3000/wallet/top-up/success
+      PAYOS_CANCEL_URL: http://localhost:3000/wallet/top-up/cancel
 
 volumes:
-  mysql-data:
+  mysql_data:
