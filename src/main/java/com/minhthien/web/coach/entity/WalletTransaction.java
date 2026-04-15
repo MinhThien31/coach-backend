@@ -1,6 +1,7 @@
 package com.minhthien.web.coach.entity;
 
 import com.minhthien.web.coach.enums.WalletTransactionType;
+import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,6 +47,35 @@ public class WalletTransaction {
 
     @Column(length = 100)
     private String referenceId;
+
+    @Column(length = 50)
+    private String bankCode;
+
+    @Column(length = 150)
+    private String bankName;
+
+    @Column(length = 50)
+    private String bankAccountNumber;
+
+    @Column(length = 150)
+    private String bankAccountHolderName;
+
+    @Column(length = 150)
+    private String bankBranch;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private WalletWithdrawalStatus withdrawalStatus;
+
+    @Column(length = 255)
+    private String adminNote;
+
+    private Long processedByUserId;
+
+    @Column(length = 150)
+    private String processedByName;
+
+    private LocalDateTime processedAt;
 
     @Builder.Default
     @Column(nullable = false)

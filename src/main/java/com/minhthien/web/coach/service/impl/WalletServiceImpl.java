@@ -2,13 +2,17 @@ package com.minhthien.web.coach.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.minhthien.web.coach.dto.request.WalletBankAccountUpsertRequest;
 import com.minhthien.web.coach.dto.request.WalletTopUpRequest;
+import com.minhthien.web.coach.dto.request.WalletWithdrawRequest;
+import com.minhthien.web.coach.dto.request.WalletWithdrawalReviewRequest;
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.*;
 import com.minhthien.web.coach.enums.SubscriptionPlanCode;
 import com.minhthien.web.coach.enums.UserRole;
 import com.minhthien.web.coach.enums.WalletTopUpOrderStatus;
 import com.minhthien.web.coach.enums.WalletTransactionType;
+import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
 import com.minhthien.web.coach.exception.BadRequestException;
 import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.repository.*;
@@ -32,6 +36,7 @@ public class WalletServiceImpl implements WalletService {
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final UserBankAccountRepository userBankAccountRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final WalletTopUpOrderRepository walletTopUpOrderRepository;
     private final PlatformSettingsRepository platformSettingsRepository;
@@ -114,6 +119,60 @@ public class WalletServiceImpl implements WalletService {
         return mapTopUp(order, wallet.getBalance());
     }
 
+
+    @Override
+    @Transactional
+    public WalletBankAccountResponse upsertMyBankAccount(Long currentUserId, WalletBankAccountUpsertRequest request) {
+        User user = getUser(currentUserId);
+        UserBankAccount bankAccount = userBankAccountRepository.findByUserId(user.getId())
+                .orElseGet(() -> UserBankAccount.builder().user(user).build());
+
+        bankAccount.setBankCode(normalizeText(request.getBankCode()));
+        bankAccount.setBankName(normalizeText(request.getBankName()));
+        bankAccount.setAccountNumber(normalizeDigits(request.getAccountNumber()));
+        bankAccount.setAccountHolderName(normalizeText(request.getAccountHolderName()));
+        bankAccount.setBranch(normalizeNullableText(request.getBranch()));
+
+        return mapBankAccount(userBankAccountRepository.save(bankAccount));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WalletBankAccountResponse getMyBankAccount(Long currentUserId) {
+        UserBankAccount bankAccount = userBankAccountRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("UserBankAccount", "userId", currentUserId));
+        return mapBankAccount(bankAccount);
+    }
+
+    @Override
+    @Transactional
+    public WalletWithdrawResponse withdrawFromMyWallet(Long currentUserId, WalletWithdrawRequest request) {
+        User user = getUser(currentUserId);
+        Wallet wallet = getOrCreateWallet(user);
+        UserBankAccount bankAccount = userBankAccountRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new BadRequestException("Vui lòng thêm thông tin ngân hàng trước khi rút tiền"));
+
+        String referenceId = String.valueOf(System.currentTimeMillis());
+        String description = StringUtils.hasText(request.getNote())
+                ? request.getNote().trim()
+                : "Yêu cầu rút tiền từ ví của " + user.getRole().name();
+
+        WalletTransaction transaction = applyTransaction(
+                wallet,
+                -request.getAmount(),
+                WalletTransactionType.WITHDRAWAL,
+                description,
+                "WITHDRAWAL",
+                referenceId,
+                bankAccount
+        );
+        transaction.setWithdrawalStatus(WalletWithdrawalStatus.PROCESSING);
+        transaction = walletTransactionRepository.save(transaction);
+
+        walletRepository.save(wallet);
+        return mapWithdrawResponse(transaction);
+    }
+
     @Override
     @Transactional
     public void handlePayOSWebhook(Map<String, Object> payload) {
@@ -172,6 +231,77 @@ public class WalletServiceImpl implements WalletService {
                         .map(this::mapTransaction)
                         .toList())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AdminWalletWithdrawRequestResponse> getAdminWithdrawRequests(WalletWithdrawalStatus status) {
+        List<WalletTransaction> transactions = status == null
+                ? walletTransactionRepository.findTop100ByTypeOrderByCreatedAtDesc(WalletTransactionType.WITHDRAWAL)
+                : walletTransactionRepository.findTop100ByTypeAndWithdrawalStatusOrderByCreatedAtDesc(
+                WalletTransactionType.WITHDRAWAL,
+                status
+        );
+
+        return transactions.stream()
+                .map(this::mapAdminWithdrawRequest)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public AdminWalletWithdrawRequestResponse approveWithdrawRequest(Long adminUserId, Long transactionId, WalletWithdrawalReviewRequest request) {
+        User admin = getAdminActor(adminUserId);
+        WalletTransaction transaction = getWithdrawTransaction(transactionId);
+
+        if (transaction.getWithdrawalStatus() != WalletWithdrawalStatus.PROCESSING) {
+            throw new BadRequestException("Yêu cầu rút tiền này không còn ở trạng thái đang xử lý");
+        }
+
+        transaction.setWithdrawalStatus(WalletWithdrawalStatus.COMPLETED);
+        transaction.setAdminNote(normalizeNullableText(request != null ? request.getNote() : null));
+        markProcessed(transaction, admin);
+
+        return mapAdminWithdrawRequest(walletTransactionRepository.save(transaction));
+    }
+
+    @Override
+    @Transactional
+    public AdminWalletWithdrawRequestResponse rejectWithdrawRequest(Long adminUserId, Long transactionId, WalletWithdrawalReviewRequest request) {
+        User admin = getAdminActor(adminUserId);
+        WalletTransaction transaction = getWithdrawTransaction(transactionId);
+
+        if (transaction.getWithdrawalStatus() != WalletWithdrawalStatus.PROCESSING) {
+            throw new BadRequestException("Yêu cầu rút tiền này không còn ở trạng thái đang xử lý");
+        }
+
+        String adminNote = normalizeNullableText(request != null ? request.getNote() : null);
+        if (!StringUtils.hasText(adminNote)) {
+            throw new BadRequestException("Vui lòng nhập lý do từ chối yêu cầu rút tiền");
+        }
+
+        Wallet wallet = transaction.getWallet();
+        WalletTransaction refundTransaction = applyTransaction(
+                wallet,
+                Math.abs(transaction.getAmount()),
+                WalletTransactionType.REFUND,
+                "Hoàn tiền do yêu cầu rút tiền bị từ chối #" + transaction.getId(),
+                "WITHDRAWAL_REJECT",
+                String.valueOf(transaction.getId())
+        );
+        copyBankSnapshot(refundTransaction, transaction);
+        refundTransaction.setAdminNote(adminNote);
+        refundTransaction.setProcessedByUserId(admin.getId());
+        refundTransaction.setProcessedByName(admin.getFullName());
+        refundTransaction.setProcessedAt(LocalDateTime.now());
+        walletTransactionRepository.save(refundTransaction);
+
+        transaction.setWithdrawalStatus(WalletWithdrawalStatus.REJECTED);
+        transaction.setAdminNote(adminNote);
+        markProcessed(transaction, admin);
+
+        walletRepository.save(wallet);
+        return mapAdminWithdrawRequest(walletTransactionRepository.save(transaction));
     }
 
     @Override
@@ -367,6 +497,18 @@ public class WalletServiceImpl implements WalletService {
             String referenceType,
             String referenceId
     ) {
+        return applyTransaction(wallet, signedAmount, type, description, referenceType, referenceId, null);
+    }
+
+    private WalletTransaction applyTransaction(
+            Wallet wallet,
+            Long signedAmount,
+            WalletTransactionType type,
+            String description,
+            String referenceType,
+            String referenceId,
+            UserBankAccount bankAccount
+    ) {
         long before = wallet.getBalance() == null ? 0L : wallet.getBalance();
         long after = before + signedAmount;
 
@@ -384,8 +526,48 @@ public class WalletServiceImpl implements WalletService {
                 .description(description)
                 .referenceType(referenceType)
                 .referenceId(referenceId)
+                .bankCode(bankAccount != null ? bankAccount.getBankCode() : null)
+                .bankName(bankAccount != null ? bankAccount.getBankName() : null)
+                .bankAccountNumber(bankAccount != null ? bankAccount.getAccountNumber() : null)
+                .bankAccountHolderName(bankAccount != null ? bankAccount.getAccountHolderName() : null)
+                .bankBranch(bankAccount != null ? bankAccount.getBranch() : null)
                 .build();
         return walletTransactionRepository.save(transaction);
+    }
+
+    private WalletTransaction getWithdrawTransaction(Long transactionId) {
+        WalletTransaction transaction = walletTransactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("WalletTransaction", "id", transactionId));
+
+        if (transaction.getType() != WalletTransactionType.WITHDRAWAL) {
+            throw new BadRequestException("Giao dịch này không phải yêu cầu rút tiền");
+        }
+        if (transaction.getWithdrawalStatus() == null) {
+            throw new BadRequestException("Giao dịch rút tiền này không hỗ trợ quy trình duyệt");
+        }
+        return transaction;
+    }
+
+    private User getAdminActor(Long adminUserId) {
+        User admin = getUser(adminUserId);
+        if (admin.getRole() != UserRole.ADMIN) {
+            throw new BadRequestException("Chỉ Admin mới có quyền xử lý yêu cầu rút tiền");
+        }
+        return admin;
+    }
+
+    private void markProcessed(WalletTransaction transaction, User admin) {
+        transaction.setProcessedByUserId(admin.getId());
+        transaction.setProcessedByName(admin.getFullName());
+        transaction.setProcessedAt(LocalDateTime.now());
+    }
+
+    private void copyBankSnapshot(WalletTransaction target, WalletTransaction source) {
+        target.setBankCode(source.getBankCode());
+        target.setBankName(source.getBankName());
+        target.setBankAccountNumber(source.getBankAccountNumber());
+        target.setBankAccountHolderName(source.getBankAccountHolderName());
+        target.setBankBranch(source.getBankBranch());
     }
 
     private Wallet getOrCreateWallet(User user) {
@@ -438,8 +620,112 @@ public class WalletServiceImpl implements WalletService {
                 .description(transaction.getDescription())
                 .referenceType(transaction.getReferenceType())
                 .referenceId(transaction.getReferenceId())
+                .bankCode(transaction.getBankCode())
+                .bankName(transaction.getBankName())
+                .bankAccountNumber(transaction.getBankAccountNumber())
+                .bankAccountHolderName(transaction.getBankAccountHolderName())
+                .bankBranch(transaction.getBankBranch())
+                .withdrawalStatus(transaction.getWithdrawalStatus())
+                .adminNote(transaction.getAdminNote())
+                .processedByUserId(transaction.getProcessedByUserId())
+                .processedByName(transaction.getProcessedByName())
+                .processedAt(transaction.getProcessedAt())
                 .createdAt(transaction.getCreatedAt())
                 .build();
+    }
+
+
+    private WalletWithdrawResponse mapWithdrawResponse(WalletTransaction transaction) {
+        Wallet wallet = transaction.getWallet();
+        User owner = wallet.getUser();
+        return WalletWithdrawResponse.builder()
+                .transactionId(transaction.getId())
+                .userId(owner.getId())
+                .ownerName(owner.getFullName())
+                .role(owner.getRole())
+                .type(transaction.getType())
+                .amount(Math.abs(transaction.getAmount()))
+                .balanceBefore(transaction.getBalanceBefore())
+                .balanceAfter(transaction.getBalanceAfter())
+                .currency(wallet.getCurrency())
+                .description(transaction.getDescription())
+                .referenceType(transaction.getReferenceType())
+                .referenceId(transaction.getReferenceId())
+                .bankCode(transaction.getBankCode())
+                .bankName(transaction.getBankName())
+                .bankAccountNumber(transaction.getBankAccountNumber())
+                .bankAccountHolderName(transaction.getBankAccountHolderName())
+                .bankBranch(transaction.getBankBranch())
+                .withdrawalStatus(transaction.getWithdrawalStatus())
+                .adminNote(transaction.getAdminNote())
+                .processedByUserId(transaction.getProcessedByUserId())
+                .processedByName(transaction.getProcessedByName())
+                .processedAt(transaction.getProcessedAt())
+                .createdAt(transaction.getCreatedAt())
+                .build();
+    }
+
+    private AdminWalletWithdrawRequestResponse mapAdminWithdrawRequest(WalletTransaction transaction) {
+        Wallet wallet = transaction.getWallet();
+        User owner = wallet.getUser();
+        return AdminWalletWithdrawRequestResponse.builder()
+                .transactionId(transaction.getId())
+                .walletId(wallet.getId())
+                .userId(owner.getId())
+                .ownerName(owner.getFullName())
+                .role(owner.getRole())
+                .type(transaction.getType())
+                .withdrawalStatus(transaction.getWithdrawalStatus())
+                .amount(Math.abs(transaction.getAmount()))
+                .balanceBefore(transaction.getBalanceBefore())
+                .balanceAfter(transaction.getBalanceAfter())
+                .currency(wallet.getCurrency())
+                .description(transaction.getDescription())
+                .referenceType(transaction.getReferenceType())
+                .referenceId(transaction.getReferenceId())
+                .bankCode(transaction.getBankCode())
+                .bankName(transaction.getBankName())
+                .bankAccountNumber(transaction.getBankAccountNumber())
+                .bankAccountHolderName(transaction.getBankAccountHolderName())
+                .bankBranch(transaction.getBankBranch())
+                .adminNote(transaction.getAdminNote())
+                .processedByUserId(transaction.getProcessedByUserId())
+                .processedByName(transaction.getProcessedByName())
+                .processedAt(transaction.getProcessedAt())
+                .createdAt(transaction.getCreatedAt())
+                .build();
+    }
+
+    private WalletBankAccountResponse mapBankAccount(UserBankAccount bankAccount) {
+        return WalletBankAccountResponse.builder()
+                .id(bankAccount.getId())
+                .userId(bankAccount.getUser().getId())
+                .bankCode(bankAccount.getBankCode())
+                .bankName(bankAccount.getBankName())
+                .accountNumber(bankAccount.getAccountNumber())
+                .accountHolderName(bankAccount.getAccountHolderName())
+                .branch(bankAccount.getBranch())
+                .createdAt(bankAccount.getCreatedAt())
+                .updatedAt(bankAccount.getUpdatedAt())
+                .build();
+    }
+
+    private String normalizeText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private String normalizeNullableText(String value) {
+        return normalizeText(value);
+    }
+
+    private String normalizeDigits(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.replaceAll("\\D", "");
     }
 
     private WalletTopUpResponse mapTopUp(WalletTopUpOrder order, Long walletBalance) {
