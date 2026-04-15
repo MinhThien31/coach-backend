@@ -3,6 +3,7 @@ package com.minhthien.web.coach.repository;
 import com.minhthien.web.coach.entity.Booking;
 import com.minhthien.web.coach.entity.TraineeProfile;
 import com.minhthien.web.coach.enums.BookingStatus;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -13,6 +14,7 @@ import java.util.List;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByTraineeId(Long traineeId);
 
     boolean existsByCoachIdAndDayOfWeekAndStartTimeAndStatusNot(
@@ -54,17 +56,20 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     """)
     Double sumMonthlySpending(Long traineeId, int month, int year);
 
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByTraineeIdAndStartDateBetween(
             Long traineeId,
             LocalDate start,
             LocalDate end
     );
 
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByTraineeIdAndStartDate(
             Long traineeId,
             LocalDate date
     );
 
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findTop3ByTraineeIdAndStartDateAfterOrderByStartDateAsc(
             Long traineeId,
             LocalDate now
@@ -79,8 +84,10 @@ AND LOWER(tp.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
 """)
     List<TraineeProfile> searchBookedTrainees(Long coachId, String keyword);
 
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByCoachId(Long coachId);
 
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByCoachIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
             Long coachId,
             LocalDate endDate,

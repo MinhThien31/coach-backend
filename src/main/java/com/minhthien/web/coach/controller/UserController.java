@@ -7,7 +7,7 @@ import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.service.UserService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +15,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/users")
 @SecurityRequirement(name = "bearerAuth")
+@RequiredArgsConstructor
 public class UserController {
-    @Autowired
-    private UserService userService;
+
+    private final UserService userService;
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> getUser(@PathVariable Long id) {
@@ -43,6 +44,7 @@ public class UserController {
         userService.activateAccount(userId);
         return ResponseEntity.ok(ApiResponse.success("Account activated", null));
     }
+
     @PutMapping("/{userId}/status")
     public ResponseEntity<ApiResponse<UserResponse>> updateUserStatus(
             @PathVariable Long userId,
@@ -52,4 +54,3 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
-

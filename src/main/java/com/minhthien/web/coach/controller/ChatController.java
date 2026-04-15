@@ -9,7 +9,7 @@ import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.service.ChatService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,10 +20,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/chat")
 @SecurityRequirement(name = "bearerAuth")
+@RequiredArgsConstructor
 public class ChatController {
 
-    @Autowired
-    private ChatService chatService;
+    private final ChatService chatService;
 
     @PostMapping("/conversations")
     public ResponseEntity<ApiResponse<ConversationResponse>> createConversation(

@@ -7,19 +7,19 @@ import com.minhthien.web.coach.dto.response.UserResponse;
 import com.minhthien.web.coach.service.AuthService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
 public class AuthController {
-    @Autowired
-    private AuthService authService;
+
+    private final AuthService authService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
@@ -34,58 +34,34 @@ public class AuthController {
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(Authentication authentication) {
-
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails userDetails)) {
             throw new RuntimeException("User not authenticated");
         }
 
-        return ResponseEntity.ok(
-                ApiResponse.success(authService.getCurrentUser(userDetails.getUsername()))
-        );
+        return ResponseEntity.ok(ApiResponse.success(authService.getCurrentUser(userDetails.getUsername())));
     }
+
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout() {
-
         SecurityContextHolder.clearContext();
-
-        return ResponseEntity.ok(
-                ApiResponse.success("Logout successful")
-        );
+        return ResponseEntity.ok(ApiResponse.success("Logout successful"));
     }
 
-
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<String>> forgotPassword(
-            @RequestBody ForgotPasswordRequest request) {
-
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request.getEmail());
-
-        return ResponseEntity.ok(
-                ApiResponse.success("OTP sent to email")
-        );
+        return ResponseEntity.ok(ApiResponse.success("OTP sent to email"));
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<ApiResponse<String>> resetPassword(
-            @RequestBody ResetPasswordRequest request) {
-
-        authService.resetPassword(
-                request.getEmail(),
-                request.getOtp(),
-                request.getNewPassword()
-        );
-
-        return ResponseEntity.ok(
-                ApiResponse.success("Password reset successful")
-        );
+    public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Password reset successful"));
     }
 
     @PostMapping("/google")
-    public AuthResponse loginGoogle(
-            @RequestBody GoogleLoginRequest request
-    ) {
-
+    public AuthResponse loginGoogle(@RequestBody GoogleLoginRequest request) {
         return authService.loginGoogle(request.getIdToken());
     }
 

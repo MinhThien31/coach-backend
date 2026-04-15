@@ -19,7 +19,7 @@ import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.security.JwtTokenProvider;
 import com.minhthien.web.coach.service.AuthService;
 import com.minhthien.web.coach.service.MailService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -33,29 +33,24 @@ import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
+@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
-    @Autowired
-    private JwtTokenProvider jwtTokenProvider;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private AuthenticationManager authenticationManager;
-    @Autowired
-    private PasswordResetOtpRepository otpRepository;
 
-    @Autowired
-    private MailService mailService;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final PasswordResetOtpRepository otpRepository;
+    private final MailService mailService;
+
     @Value("${google.client-id}")
     private String googleClientId;
 
     @Override
     @Transactional
-
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException("Email already in use: " + request.getEmail());
@@ -66,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
         if (request.getRole() == UserRole.ADMIN) {
             throw new BadRequestException("Cannot register as ADMIN");
         }
+
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
@@ -75,19 +71,10 @@ public class AuthServiceImpl implements AuthService {
                 .role(request.getRole())
                 .active(true)
                 .build();
-        user = userRepository.save(user);
 
+        user = userRepository.save(user);
         String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
-        return AuthResponse.builder()
-                .token(token)
-                .tokenType("Bearer")
-                .userId(user.getId())
-                .username(user.getUsername())
-                .fullName(user.getFullName())
-                .phone(user.getPhone())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
+        return buildAuthResponse(user, token);
     }
 
     @Override
@@ -96,8 +83,134 @@ public class AuthServiceImpl implements AuthService {
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
         User user = (User) authentication.getPrincipal();
         String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
+        return buildAuthResponse(user, token);
+    }
+
+    @Override
+    public UserResponse getCurrentUser(String usernameOrEmail) {
+        User user = userRepository.findByUsername(usernameOrEmail)
+                .orElseGet(() -> userRepository.findByEmail(usernameOrEmail)
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found: " + usernameOrEmail)));
+
+        return mapToUserResponse(user);
+    }
+
+    @Override
+    public void forgotPassword(String email) {
+        userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+
+        String otp = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 1000000));
+        PasswordResetOtp resetOtp = PasswordResetOtp.builder()
+                .email(email)
+                .otp(otp)
+                .expiryTime(LocalDateTime.now().plusMinutes(5))
+                .build();
+
+        otpRepository.save(resetOtp);
+        mailService.sendOtp(email, otp);
+    }
+
+    @Override
+    public void resetPassword(String email, String otp, String newPassword) {
+        PasswordResetOtp resetOtp = otpRepository.findByEmailAndOtp(email, otp)
+                .orElseThrow(() -> new BadRequestException("Invalid OTP"));
+
+        if (resetOtp.getExpiryTime().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("OTP expired");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    public AuthResponse loginGoogle(String idToken) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    GoogleNetHttpTransport.newTrustedTransport(),
+                    GsonFactory.getDefaultInstance())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken googleToken = verifier.verify(idToken);
+            if (googleToken == null) {
+                throw new BadRequestException("Invalid Google token");
+            }
+
+            GoogleIdToken.Payload payload = googleToken.getPayload();
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+            String picture = (String) payload.get("picture");
+
+            User user = userRepository.findByEmail(email)
+                    .orElseGet(() -> userRepository.save(User.builder()
+                            .email(email)
+                            .username(name)
+                            .avatarUrl(picture)
+                            .role(UserRole.TRAINEES)
+                            .active(true)
+                            .build()));
+
+            String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
+            return AuthResponse.builder()
+                    .token(token)
+                    .tokenType("Bearer")
+                    .userId(user.getId())
+                    .username(user.getUsername())
+                    .email(user.getEmail())
+                    .role(user.getRole())
+                    .build();
+        } catch (Exception e) {
+            throw new RuntimeException("Google login failed");
+        }
+    }
+
+    @Override
+    public AuthResponse loginFacebook(String accessToken) {
+        try {
+            String url = "https://graph.facebook.com/me?fields=id,name,email,picture&access_token=" + accessToken;
+            RestTemplate restTemplate = new RestTemplate();
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+
+            String email = (String) response.get("email");
+            String name = (String) response.get("name");
+            String id = (String) response.get("id");
+
+            if (email == null) {
+                email = id + "@facebook.com";
+            }
+
+            String finalEmail = email;
+            User user = userRepository.findByEmail(finalEmail)
+                    .orElseGet(() -> userRepository.save(User.builder()
+                            .email(finalEmail)
+                            .username(name)
+                            .role(UserRole.TRAINEES)
+                            .active(true)
+                            .provider("FACEBOOK")
+                            .build()));
+
+            String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
+            return AuthResponse.builder()
+                    .token(token)
+                    .tokenType("Bearer")
+                    .userId(user.getId())
+                    .username(user.getUsername())
+                    .email(user.getEmail())
+                    .role(user.getRole())
+                    .build();
+        } catch (Exception e) {
+            throw new RuntimeException("Facebook login failed");
+        }
+    }
+
+    private AuthResponse buildAuthResponse(User user, String token) {
         return AuthResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
@@ -108,162 +221,6 @@ public class AuthServiceImpl implements AuthService {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .build();
-    }
-
-    @Override
-    public UserResponse getCurrentUser(String usernameOrEmail) {
-
-        User user = userRepository.findByUsername(usernameOrEmail)
-                .orElseGet(() ->
-                        userRepository.findByEmail(usernameOrEmail)
-                                .orElseThrow(() ->
-                                        new ResourceNotFoundException(
-                                                "User not found: " + usernameOrEmail)));
-
-        return mapToUserResponse(user);
-    }
-
-    @Override
-    public void forgotPassword(String email) {
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
-
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
-
-        PasswordResetOtp resetOtp = PasswordResetOtp.builder()
-                .email(email)
-                .otp(otp)
-                .expiryTime(LocalDateTime.now().plusMinutes(5))
-                .build();
-
-        otpRepository.save(resetOtp);
-
-        mailService.sendOtp(email, otp);
-    }
-
-    @Override
-    public void resetPassword(String email, String otp, String newPassword) {
-
-        PasswordResetOtp resetOtp = otpRepository
-                .findByEmailAndOtp(email, otp)
-                .orElseThrow(() -> new BadRequestException("Invalid OTP"));
-
-        if (resetOtp.getExpiryTime().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("OTP expired");
-        }
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        user.setPassword(passwordEncoder.encode(newPassword));
-
-        userRepository.save(user);
-
-    }
-
-    @Override
-    public AuthResponse loginGoogle(String idToken) {
-
-        try {
-
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-                    GoogleNetHttpTransport.newTrustedTransport(),
-                    GsonFactory.getDefaultInstance())
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
-
-            GoogleIdToken googleToken = verifier.verify(idToken);
-
-            if (googleToken == null) {
-                throw new BadRequestException("Invalid Google token");
-            }
-
-            GoogleIdToken.Payload payload = googleToken.getPayload();
-
-            String email = payload.getEmail();
-            String name = (String) payload.get("name");
-            String picture = (String) payload.get("picture");
-
-            User user = userRepository.findByEmail(email)
-                    .orElseGet(() -> {
-
-                        User newUser = User.builder()
-                                .email(email)
-                                .username(name)
-                                .avatarUrl(picture)
-                                .role(UserRole.TRAINEES)
-                                .active(true)
-                                .build();
-
-                        return userRepository.save(newUser);
-                    });
-
-            String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
-
-            return AuthResponse.builder()
-                    .token(token)
-                    .tokenType("Bearer")
-                    .userId(user.getId())
-                    .username(user.getUsername())
-                    .email(user.getEmail())
-                    .role(user.getRole())
-                    .build();
-
-        } catch (Exception e) {
-
-            throw new RuntimeException("Google login failed");
-        }
-    }
-
-    @Override
-    public AuthResponse loginFacebook(String accessToken) {
-        try {
-
-            String url = "https://graph.facebook.com/me?fields=id,name,email,picture&access_token=" + accessToken;
-
-            RestTemplate restTemplate = new RestTemplate();
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-
-            String email = (String) response.get("email");
-            String name = (String) response.get("name");
-            String id = (String) response.get("id");
-
-            if(email == null){
-                email = id + "@facebook.com";
-            }
-
-            final String finalEmail = email;
-
-            User user = userRepository.findByEmail(finalEmail)
-                    .orElseGet(() -> {
-
-                        User newUser = User.builder()
-                                .email(finalEmail)
-                                .username(name)
-                                .role(UserRole.TRAINEES)
-                                .active(true)
-                                .provider("FACEBOOK")
-                                .build();
-
-                        return userRepository.save(newUser);
-                    });
-
-            String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
-
-            return AuthResponse.builder()
-                    .token(token)
-                    .tokenType("Bearer")
-                    .userId(user.getId())
-                    .username(user.getUsername())
-                    .email(user.getEmail())
-                    .role(user.getRole())
-                    .build();
-
-        } catch (Exception e) {
-
-            throw new RuntimeException("Facebook login failed");
-        }
     }
 
     private UserResponse mapToUserResponse(User user) {
@@ -277,5 +234,4 @@ public class AuthServiceImpl implements AuthService {
                 .createdAt(user.getCreatedAt())
                 .build();
     }
-
 }

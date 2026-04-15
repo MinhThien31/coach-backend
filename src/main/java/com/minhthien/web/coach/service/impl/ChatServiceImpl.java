@@ -12,7 +12,7 @@ import com.minhthien.web.coach.repository.ChatMessageRepository;
 import com.minhthien.web.coach.repository.ConversationRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.ChatService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -22,18 +22,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
-    @Autowired
-    private ConversationRepository conversationRepository;
-
-    @Autowired
-    private ChatMessageRepository chatMessageRepository;
-
-    @Autowired
-    private UserRepository userRepository;
+    private final ConversationRepository conversationRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -48,8 +47,7 @@ public class ChatServiceImpl implements ChatService {
         Long firstId = Math.min(currentUserId, participantId);
         Long secondId = Math.max(currentUserId, participantId);
 
-        Conversation conversation = conversationRepository
-                .findByUserOneIdAndUserTwoId(firstId, secondId)
+        Conversation conversation = conversationRepository.findByUserOneIdAndUserTwoId(firstId, secondId)
                 .orElseGet(() -> conversationRepository.save(
                         Conversation.builder()
                                 .userOne(firstId.equals(currentUser.getId()) ? currentUser : participant)
@@ -59,22 +57,40 @@ public class ChatServiceImpl implements ChatService {
                                 .build()
                 ));
 
-        return mapConversation(conversation, currentUserId);
+        ChatMessage latestMessage = chatMessageRepository.findTopByConversationIdOrderByCreatedAtDesc(conversation.getId())
+                .orElse(null);
+        return mapConversation(conversation, currentUserId, latestMessage);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ConversationResponse> getMyConversations(Long currentUserId) {
-        return conversationRepository.findAllByParticipantIdOrderByUpdatedAtDesc(currentUserId)
+        List<Conversation> conversations = conversationRepository.findAllByParticipantIdOrderByUpdatedAtDesc(currentUserId);
+        if (conversations.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> conversationIds = conversations.stream()
+                .map(Conversation::getId)
+                .toList();
+
+        Map<Long, ChatMessage> latestMessageByConversationId = chatMessageRepository.findLatestMessagesByConversationIds(conversationIds)
                 .stream()
-                .map(conversation -> mapConversation(conversation, currentUserId))
+                .collect(Collectors.toMap(message -> message.getConversation().getId(), Function.identity()));
+
+        return conversations.stream()
+                .map(conversation -> mapConversation(
+                        conversation,
+                        currentUserId,
+                        latestMessageByConversationId.get(conversation.getId())
+                ))
                 .toList();
     }
 
     @Override
     @Transactional
     public Page<ChatMessageResponse> getConversationMessages(Long currentUserId, Long conversationId, int page, int size) {
-        Conversation conversation = getConversationForUser(currentUserId, conversationId);
+        getConversationForUser(currentUserId, conversationId);
 
         Page<ChatMessage> messagePage = chatMessageRepository.findByConversationIdOrderByCreatedAtDesc(
                 conversationId,
@@ -82,11 +98,12 @@ public class ChatServiceImpl implements ChatService {
         );
 
         List<ChatMessage> managedMessages = messagePage.getContent();
+        LocalDateTime readAt = LocalDateTime.now();
         managedMessages.stream()
                 .filter(message -> Boolean.FALSE.equals(message.getRead()) && message.getReceiver().getId().equals(currentUserId))
                 .forEach(message -> {
                     message.setRead(true);
-                    message.setReadAt(LocalDateTime.now());
+                    message.setReadAt(readAt);
                 });
 
         List<ChatMessageResponse> messages = managedMessages.stream()
@@ -109,19 +126,17 @@ public class ChatServiceImpl implements ChatService {
             throw new BadRequestException("Message content must not be blank");
         }
 
-        ChatMessage message = ChatMessage.builder()
+        ChatMessage savedMessage = chatMessageRepository.save(ChatMessage.builder()
                 .conversation(conversation)
                 .sender(sender)
                 .receiver(receiver)
                 .content(normalizedContent)
                 .read(false)
                 .createdAt(LocalDateTime.now())
-                .build();
+                .build());
 
-        ChatMessage savedMessage = chatMessageRepository.save(message);
         conversation.setUpdatedAt(LocalDateTime.now());
         conversationRepository.save(conversation);
-
         return mapMessage(savedMessage, currentUserId);
     }
 
@@ -131,7 +146,6 @@ public class ChatServiceImpl implements ChatService {
 
         boolean isParticipant = conversation.getUserOne().getId().equals(currentUserId)
                 || conversation.getUserTwo().getId().equals(currentUserId);
-
         if (!isParticipant) {
             throw new UnauthorizedException("You are not allowed to access this conversation");
         }
@@ -145,11 +159,8 @@ public class ChatServiceImpl implements ChatService {
         return conversation.getUserOne();
     }
 
-    private ConversationResponse mapConversation(Conversation conversation, Long currentUserId) {
+    private ConversationResponse mapConversation(Conversation conversation, Long currentUserId, ChatMessage latestMessage) {
         User participant = getOtherParticipant(conversation, currentUserId);
-        ChatMessage latestMessage = chatMessageRepository.findTopByConversationIdOrderByCreatedAtDesc(conversation.getId())
-                .orElse(null);
-
         return ConversationResponse.builder()
                 .id(conversation.getId())
                 .participantId(participant.getId())

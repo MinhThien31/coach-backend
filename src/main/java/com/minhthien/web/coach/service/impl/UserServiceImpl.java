@@ -7,22 +7,19 @@ import com.minhthien.web.coach.exception.BadRequestException;
 import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public UserResponse getUserById(Long id) {
@@ -35,7 +32,7 @@ public class UserServiceImpl implements UserService {
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(this::mapToResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -74,8 +71,7 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
         user.setActive(active);
-        user = userRepository.save(user);
-        return mapToResponse(user);
+        return mapToResponse(userRepository.save(user));
     }
 
     private UserResponse mapToResponse(User user) {
@@ -90,4 +86,3 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 }
-

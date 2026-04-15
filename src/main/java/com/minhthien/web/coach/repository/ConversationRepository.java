@@ -1,6 +1,7 @@
 package com.minhthien.web.coach.repository;
 
 import com.minhthien.web.coach.entity.Conversation;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +15,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
 
     Optional<Conversation> findByUserOneIdAndUserTwoId(Long userOneId, Long userTwoId);
 
+    @EntityGraph(attributePaths = {"userOne", "userTwo"})
     @Query("""
             select c
             from Conversation c
