@@ -5,6 +5,7 @@ import com.minhthien.web.coach.dto.response.ApiResponse;
 import com.minhthien.web.coach.dto.response.CurrentSubscriptionResponse;
 import com.minhthien.web.coach.dto.response.SubscriptionCatalogResponse;
 import com.minhthien.web.coach.dto.response.SubscriptionChangeResponse;
+import com.minhthien.web.coach.dto.response.SubscriptionPurchaseHistoryResponse;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
 import com.minhthien.web.coach.service.SubscriptionService;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +29,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
+
+    @GetMapping("/packages")
+    public ResponseEntity<ApiResponse<SubscriptionCatalogResponse>> getMyPackages(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(required = false) SubscriptionBillingCycle billingCycle
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Subscription packages loaded successfully",
+                        subscriptionService.getMyPackages(currentUser.getId(), billingCycle)
+                )
+        );
+    }
 
     @GetMapping("/trainee/catalog")
     public ResponseEntity<ApiResponse<SubscriptionCatalogResponse>> getTraineeCatalog(
@@ -75,6 +90,31 @@ public class SubscriptionController {
                 ApiResponse.success(
                         "Current subscription loaded successfully",
                         subscriptionService.getCurrentSubscription(currentUser.getId())
+                )
+        );
+    }
+
+    @GetMapping("/purchase-history")
+    public ResponseEntity<ApiResponse<SubscriptionPurchaseHistoryResponse>> getPurchaseHistory(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Subscription purchase history loaded successfully",
+                        subscriptionService.getPurchaseHistory(currentUser.getId())
+                )
+        );
+    }
+
+    @PostMapping("/purchase")
+    public ResponseEntity<ApiResponse<SubscriptionChangeResponse>> purchasePackage(
+            @AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody ChangeSubscriptionPlanRequest request
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Subscription purchased successfully",
+                        subscriptionService.purchasePackage(currentUser.getId(), request)
                 )
         );
     }

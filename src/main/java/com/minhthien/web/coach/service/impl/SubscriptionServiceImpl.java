@@ -6,6 +6,8 @@ import com.minhthien.web.coach.entity.PlatformSettings;
 import com.minhthien.web.coach.entity.TraineeProfile;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.entity.UserSubscription;
+import com.minhthien.web.coach.entity.Wallet;
+import com.minhthien.web.coach.entity.WalletTransaction;
 import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
 import com.minhthien.web.coach.enums.SubscriptionPlanCode;
 import com.minhthien.web.coach.enums.UserRole;
@@ -15,6 +17,8 @@ import com.minhthien.web.coach.repository.PlatformSettingsRepository;
 import com.minhthien.web.coach.repository.TraineeProfileRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.repository.UserSubscriptionRepository;
+import com.minhthien.web.coach.repository.WalletRepository;
+import com.minhthien.web.coach.repository.WalletTransactionRepository;
 import com.minhthien.web.coach.service.SubscriptionService;
 import com.minhthien.web.coach.service.WalletService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static com.minhthien.web.coach.enums.WalletTransactionType.SUBSCRIPTION_PURCHASE;
+
 @Service
 @RequiredArgsConstructor
 public class SubscriptionServiceImpl implements SubscriptionService {
@@ -40,6 +46,8 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final PlatformSettingsRepository platformSettingsRepository;
     private final TraineeProfileRepository traineeProfileRepository;
+    private final WalletRepository walletRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
     private final WalletService walletService;
 
     @Override
@@ -82,6 +90,16 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     @Override
     @Transactional(readOnly = true)
+    public SubscriptionCatalogResponse getMyPackages(Long currentUserId, SubscriptionBillingCycle billingCycle) {
+        User user = getCurrentUser(currentUserId);
+        validateSupportedRole(user);
+        return user.getRole() == UserRole.COACHES
+                ? getCoachCatalog(currentUserId, billingCycle)
+                : getTraineeCatalog(currentUserId, billingCycle);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CurrentSubscriptionResponse getCurrentSubscription(Long currentUserId) {
         User user = getCurrentUser(currentUserId);
         validateSupportedRole(user);
@@ -97,6 +115,10 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
         PlatformSettings settings = getOrCreateSettings();
         SubscriptionBillingCycle billingCycle = resolveBillingCycle(request.getBillingCycle());
+        UserSubscription existingSubscription = userSubscriptionRepository.findByUserId(user.getId())
+                .orElse(null);
+        ensureCanPurchase(user, existingSubscription, request.getPlanCode(), billingCycle);
+
         Long monthlyPrice = getMonthlyPrice(user.getRole(), request.getPlanCode(), settings);
         Long billingPrice = calculateBillingPrice(monthlyPrice, billingCycle);
 
@@ -104,10 +126,12 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 user,
                 billingPrice,
                 buildWalletPurchaseDescription(user.getRole(), request.getPlanCode(), billingCycle),
-                request.getPlanCode().name() + "-" + billingCycle.name()
+                request.getPlanCode().name() + "-" + billingCycle.name(),
+                request.getPlanCode(),
+                billingCycle
         );
 
-        UserSubscription subscription = userSubscriptionRepository.findByUserId(user.getId())
+        UserSubscription subscription = Optional.ofNullable(existingSubscription)
                 .orElseGet(() -> UserSubscription.builder()
                         .user(user)
                         .build());
@@ -136,6 +160,37 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         User user = getCurrentUser(currentUserId);
         validateUserRole(user, UserRole.COACHES);
         return changePlan(currentUserId, request);
+    }
+
+    @Override
+    @Transactional
+    public SubscriptionChangeResponse purchasePackage(Long currentUserId, ChangeSubscriptionPlanRequest request) {
+        return changePlan(currentUserId, request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SubscriptionPurchaseHistoryResponse getPurchaseHistory(Long currentUserId) {
+        User user = getCurrentUser(currentUserId);
+        validateSupportedRole(user);
+
+        Wallet wallet = walletRepository.findByUserId(user.getId())
+                .orElse(null);
+        List<SubscriptionPurchaseHistoryItemResponse> purchases = wallet == null
+                ? List.of()
+                : walletTransactionRepository.findTop100ByWalletIdAndTypeOrderByCreatedAtDesc(wallet.getId(), SUBSCRIPTION_PURCHASE)
+                .stream()
+                .map(transaction -> mapPurchaseHistoryItem(user, transaction))
+                .toList();
+
+        return SubscriptionPurchaseHistoryResponse.builder()
+                .userId(user.getId())
+                .ownerName(user.getFullName())
+                .role(user.getRole())
+                .totalPurchases(purchases.size())
+                .currentSubscription(buildCurrentSubscription(user))
+                .purchases(purchases)
+                .build();
     }
 
 
@@ -525,6 +580,46 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             case PRO -> 1;
             case PREMIUM -> 2;
         };
+    }
+
+    private void ensureCanPurchase(
+            User user,
+            UserSubscription existingSubscription,
+            SubscriptionPlanCode targetPlanCode,
+            SubscriptionBillingCycle targetBillingCycle
+    ) {
+        if (existingSubscription == null || existingSubscription.getPlanCode() == null) {
+            return;
+        }
+
+        SubscriptionPlanCode currentPlanCode = existingSubscription.getPlanCode();
+        SubscriptionBillingCycle currentBillingCycle = resolveBillingCycle(existingSubscription.getBillingCycle());
+        boolean stillActive = existingSubscription.getExpiresAt() == null || existingSubscription.getExpiresAt().isAfter(LocalDateTime.now());
+
+        if (stillActive && currentPlanCode == targetPlanCode && currentBillingCycle == targetBillingCycle) {
+            throw new BadRequestException("Bạn đang sử dụng đúng gói này rồi, không thể mua lại ngay lúc này");
+        }
+
+        if (user.getRole() == UserRole.TRAINEES && targetPlanCode == SubscriptionPlanCode.PREMIUM) {
+            throw new BadRequestException("Trainee accounts only support FREE and PRO plans");
+        }
+    }
+
+    private SubscriptionPurchaseHistoryItemResponse mapPurchaseHistoryItem(User user, WalletTransaction transaction) {
+        SubscriptionPlanCode planCode = transaction.getSubscriptionPlanCode();
+        SubscriptionBillingCycle billingCycle = resolveBillingCycle(transaction.getSubscriptionBillingCycle());
+
+        return SubscriptionPurchaseHistoryItemResponse.builder()
+                .transactionId(transaction.getId())
+                .planCode(planCode)
+                .displayName(planCode == null ? null : getDisplayName(user.getRole(), planCode))
+                .billingCycle(billingCycle)
+                .amount(Math.abs(transaction.getAmount()))
+                .displayAmount(formatPrice(Math.abs(transaction.getAmount())))
+                .description(transaction.getDescription())
+                .referenceId(transaction.getReferenceId())
+                .purchasedAt(transaction.getCreatedAt())
+                .build();
     }
 
     private String buildWalletPurchaseDescription(

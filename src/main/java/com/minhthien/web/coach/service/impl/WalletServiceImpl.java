@@ -8,6 +8,7 @@ import com.minhthien.web.coach.dto.request.WalletWithdrawRequest;
 import com.minhthien.web.coach.dto.request.WalletWithdrawalReviewRequest;
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.*;
+import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
 import com.minhthien.web.coach.enums.SubscriptionPlanCode;
 import com.minhthien.web.coach.enums.UserRole;
 import com.minhthien.web.coach.enums.WalletTopUpOrderStatus;
@@ -306,17 +307,14 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     @Transactional
-    public WalletPaymentResult processSubscriptionPurchase(User user, Long amount, String description, String referenceId) {
-        if (amount == null || amount <= 0) {
-            Wallet wallet = getOrCreateWallet(user);
-            Wallet adminWallet = getOrCreateWallet(getAdminUser());
-            return WalletPaymentResult.builder()
-                    .chargedAmount(0L)
-                    .walletBalanceAfter(wallet.getBalance())
-                    .adminWalletBalanceAfter(adminWallet.getBalance())
-                    .build();
-        }
-
+    public WalletPaymentResult processSubscriptionPurchase(
+            User user,
+            Long amount,
+            String description,
+            String referenceId,
+            SubscriptionPlanCode planCode,
+            SubscriptionBillingCycle billingCycle
+    ) {
         if (user.getRole() != UserRole.COACHES && user.getRole() != UserRole.TRAINEES) {
             throw new BadRequestException("Chỉ Coach và Trainees mới có thể mua gói bằng ví");
         }
@@ -324,7 +322,28 @@ public class WalletServiceImpl implements WalletService {
         Wallet buyerWallet = getOrCreateWallet(user);
         Wallet adminWallet = getOrCreateWallet(getAdminUser());
 
-        applyTransaction(
+        if (amount == null || amount <= 0) {
+            WalletTransaction buyerTransaction = applyTransaction(
+                    buyerWallet,
+                    0L,
+                    WalletTransactionType.SUBSCRIPTION_PURCHASE,
+                    description,
+                    "SUBSCRIPTION",
+                    referenceId
+            );
+            buyerTransaction.setSubscriptionPlanCode(planCode);
+            buyerTransaction.setSubscriptionBillingCycle(billingCycle);
+            walletTransactionRepository.save(buyerTransaction);
+            walletRepository.save(buyerWallet);
+
+            return WalletPaymentResult.builder()
+                    .chargedAmount(0L)
+                    .walletBalanceAfter(buyerWallet.getBalance())
+                    .adminWalletBalanceAfter(adminWallet.getBalance())
+                    .build();
+        }
+
+        WalletTransaction buyerTransaction = applyTransaction(
                 buyerWallet,
                 -amount,
                 WalletTransactionType.SUBSCRIPTION_PURCHASE,
@@ -332,6 +351,10 @@ public class WalletServiceImpl implements WalletService {
                 "SUBSCRIPTION",
                 referenceId
         );
+        buyerTransaction.setSubscriptionPlanCode(planCode);
+        buyerTransaction.setSubscriptionBillingCycle(billingCycle);
+        walletTransactionRepository.save(buyerTransaction);
+
         applyTransaction(
                 adminWallet,
                 amount,
@@ -620,6 +643,8 @@ public class WalletServiceImpl implements WalletService {
                 .description(transaction.getDescription())
                 .referenceType(transaction.getReferenceType())
                 .referenceId(transaction.getReferenceId())
+                .subscriptionPlanCode(transaction.getSubscriptionPlanCode())
+                .subscriptionBillingCycle(transaction.getSubscriptionBillingCycle())
                 .bankCode(transaction.getBankCode())
                 .bankName(transaction.getBankName())
                 .bankAccountNumber(transaction.getBankAccountNumber())
@@ -651,6 +676,8 @@ public class WalletServiceImpl implements WalletService {
                 .description(transaction.getDescription())
                 .referenceType(transaction.getReferenceType())
                 .referenceId(transaction.getReferenceId())
+                .subscriptionPlanCode(transaction.getSubscriptionPlanCode())
+                .subscriptionBillingCycle(transaction.getSubscriptionBillingCycle())
                 .bankCode(transaction.getBankCode())
                 .bankName(transaction.getBankName())
                 .bankAccountNumber(transaction.getBankAccountNumber())
@@ -683,6 +710,8 @@ public class WalletServiceImpl implements WalletService {
                 .description(transaction.getDescription())
                 .referenceType(transaction.getReferenceType())
                 .referenceId(transaction.getReferenceId())
+                .subscriptionPlanCode(transaction.getSubscriptionPlanCode())
+                .subscriptionBillingCycle(transaction.getSubscriptionBillingCycle())
                 .bankCode(transaction.getBankCode())
                 .bankName(transaction.getBankName())
                 .bankAccountNumber(transaction.getBankAccountNumber())

@@ -1,5 +1,7 @@
 package com.minhthien.web.coach.entity;
 
+import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
+import com.minhthien.web.coach.enums.SubscriptionPlanCode;
 import com.minhthien.web.coach.enums.WalletTransactionType;
 import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
 import jakarta.persistence.*;
@@ -47,6 +49,14 @@ public class WalletTransaction {
 
     @Column(length = 100)
     private String referenceId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private SubscriptionPlanCode subscriptionPlanCode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private SubscriptionBillingCycle subscriptionBillingCycle;
 
     @Column(length = 50)
     private String bankCode;

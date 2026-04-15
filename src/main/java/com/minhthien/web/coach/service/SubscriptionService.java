@@ -4,6 +4,7 @@ import com.minhthien.web.coach.dto.request.ChangeSubscriptionPlanRequest;
 import com.minhthien.web.coach.dto.response.CurrentSubscriptionResponse;
 import com.minhthien.web.coach.dto.response.SubscriptionCatalogResponse;
 import com.minhthien.web.coach.dto.response.SubscriptionChangeResponse;
+import com.minhthien.web.coach.dto.response.SubscriptionPurchaseHistoryResponse;
 import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
 
 public interface SubscriptionService {
@@ -12,10 +13,16 @@ public interface SubscriptionService {
 
     SubscriptionCatalogResponse getCoachCatalog(Long currentUserId, SubscriptionBillingCycle billingCycle);
 
+    SubscriptionCatalogResponse getMyPackages(Long currentUserId, SubscriptionBillingCycle billingCycle);
+
     CurrentSubscriptionResponse getCurrentSubscription(Long currentUserId);
 
     SubscriptionChangeResponse changePlan(Long currentUserId, ChangeSubscriptionPlanRequest request);
 
+    SubscriptionChangeResponse purchasePackage(Long currentUserId, ChangeSubscriptionPlanRequest request);
+
     SubscriptionChangeResponse changeCoachPlan(Long currentUserId, ChangeSubscriptionPlanRequest request);
+
+    SubscriptionPurchaseHistoryResponse getPurchaseHistory(Long currentUserId);
 
 }

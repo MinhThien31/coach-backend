@@ -15,6 +15,8 @@ import com.minhthien.web.coach.dto.response.WalletWithdrawResponse;
 import com.minhthien.web.coach.dto.response.WalletTransactionResponse;
 import com.minhthien.web.coach.entity.Booking;
 import com.minhthien.web.coach.entity.User;
+import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
+import com.minhthien.web.coach.enums.SubscriptionPlanCode;
 import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
 
 import java.util.List;
@@ -46,7 +48,8 @@ public interface WalletService {
 
     AdminWalletWithdrawRequestResponse rejectWithdrawRequest(Long adminUserId, Long transactionId, WalletWithdrawalReviewRequest request);
 
-    WalletPaymentResult processSubscriptionPurchase(User user, Long amount, String description, String referenceId);
+    WalletPaymentResult processSubscriptionPurchase(User user, Long amount, String description, String referenceId,
+                                                    SubscriptionPlanCode planCode, SubscriptionBillingCycle billingCycle);
 
     BookingSettlementResult settleBookingPayment(Booking booking);
 }

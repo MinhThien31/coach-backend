@@ -1,8 +1,6 @@
 package com.minhthien.web.coach.dto.response;
 
-import com.minhthien.web.coach.enums.UserRole;
-import com.minhthien.web.coach.enums.WalletTransactionType;
-import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
+import com.minhthien.web.coach.enums.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,6 +25,8 @@ public class WalletWithdrawResponse {
     private String description;
     private String referenceType;
     private String referenceId;
+    private SubscriptionPlanCode subscriptionPlanCode;
+    private SubscriptionBillingCycle subscriptionBillingCycle;
     private String bankCode;
     private String bankName;
     private String bankAccountNumber;
