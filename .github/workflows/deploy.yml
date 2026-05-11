@@ -26,17 +26,24 @@ jobs:
           mkdir -p target/deploy
           mv target/*.jar target/deploy/spring-app.jar
 
+      - name: Install Cloudflare Client
+        run: |
+          sudo mkdir -p --mode=0755 /usr/local/bin
+          curl -L --output /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          sudo chmod +x /usr/local/bin/cloudflared
+
       - name: Copy JAR to Pi
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USERNAME }}
           key: ${{ secrets.PI_SSH_KEY }}
-          port: 2222
-          use_insecure_cipher: true
+          port: 22
+          proxy_command: /usr/local/bin/cloudflared access ssh --hostname ssh.minhthien.io.vn
           source: "target/deploy/spring-app.jar"
           target: "/home/minhthien/app"
           strip_components: 2
+          overwrite: true
 
       - name: Restart with PM2
         uses: appleboy/ssh-action@master
@@ -44,8 +51,8 @@ jobs:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USERNAME }}
           key: ${{ secrets.PI_SSH_KEY }}
-          port: 2222
-          family: inet
+          port: 22
+          proxy_command: /usr/local/bin/cloudflared access ssh --hostname ssh.minhthien.io.vn
           script: |
             pm2 delete spring-app || true
             pm2 start "java -Xmx768M -jar /home/minhthien/app/spring-app.jar" --name "spring-app"
