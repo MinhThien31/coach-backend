@@ -32,8 +32,8 @@ jobs:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USERNAME }}
           key: ${{ secrets.PI_SSH_KEY }}
-          port: 22
-          family: inet
+          port: 2222
+          use_insecure_cipher: true
           source: "target/deploy/spring-app.jar"
           target: "/home/minhthien/app"
           strip_components: 2
@@ -44,7 +44,7 @@ jobs:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USERNAME }}
           key: ${{ secrets.PI_SSH_KEY }}
-          port: 22
+          port: 2222
           family: inet
           script: |
             pm2 delete spring-app || true
