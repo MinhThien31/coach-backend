@@ -32,28 +32,29 @@ jobs:
           curl -L --output /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
           sudo chmod +x /usr/local/bin/cloudflared
 
-      - name: Copy JAR to Pi
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.PI_HOST }}
-          username: ${{ secrets.PI_USERNAME }}
-          key: ${{ secrets.PI_SSH_KEY }}
-          port: 22
-          proxy_command: /usr/local/bin/cloudflared access ssh --hostname ssh.minhthien.io.vn
-          source: "target/deploy/spring-app.jar"
-          target: "/home/minhthien/app"
-          strip_components: 2
-          overwrite: true
+      - name: Deploy to Pi via Tunnel
+        env:
+          SSH_KEY: ${{ secrets.PI_SSH_KEY }}
+          PI_USER: ${{ secrets.PI_USERNAME }}
+          PI_HOST: ssh.minhthien.io.vn
+        run: |
+          # 1. Thiết lập thư mục SSH và lưu Key
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # 2. Tạo file cấu hình SSH để "ép" chui qua cloudflared
+          cat <<EOF > ~/.ssh/config
+          Host my-pi
+            HostName $PI_HOST
+            User $PI_USER
+            IdentityFile ~/.ssh/id_rsa
+            ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h
+            StrictHostKeyChecking no
+          EOF
 
-      - name: Restart with PM2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.PI_HOST }}
-          username: ${{ secrets.PI_USERNAME }}
-          key: ${{ secrets.PI_SSH_KEY }}
-          port: 22
-          proxy_command: /usr/local/bin/cloudflared access ssh --hostname ssh.minhthien.io.vn
-          script: |
-            pm2 delete spring-app || true
-            pm2 start "java -Xmx768M -jar /home/minhthien/app/spring-app.jar" --name "spring-app"
-            pm2 save
+          # 3. Copy file JAR (Dùng SCP qua Tunnel)
+          scp target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
+
+          # 4. Restart App bằng PM2 (Dùng SSH qua Tunnel)
+          ssh my-pi "pm2 delete spring-app || true && pm2 start 'java -Xmx768M -jar /home/minhthien/app/spring-app.jar' --name 'spring-app' && pm2 save"
