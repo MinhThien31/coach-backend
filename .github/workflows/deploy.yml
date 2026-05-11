@@ -33,10 +33,10 @@ jobs:
           username: ${{ secrets.PI_USERNAME }}
           key: ${{ secrets.PI_SSH_KEY }}
           port: 22
+          family: inet
           source: "target/deploy/spring-app.jar"
           target: "/home/minhthien/app"
           strip_components: 2
-          overwrite: true
 
       - name: Restart with PM2
         uses: appleboy/ssh-action@master
@@ -45,6 +45,7 @@ jobs:
           username: ${{ secrets.PI_USERNAME }}
           key: ${{ secrets.PI_SSH_KEY }}
           port: 22
+          family: inet
           script: |
             pm2 delete spring-app || true
             pm2 start "java -Xmx768M -jar /home/minhthien/app/spring-app.jar" --name "spring-app"
