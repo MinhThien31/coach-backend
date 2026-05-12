@@ -34,29 +34,30 @@ jobs:
 
       - name: Deploy to Pi via Tunnel
         env:
-          SSH_KEY: ${{ secrets.PI_SSH_KEY }}
+          # Biến này lấy từ chuỗi Base64 bạn đã dán vào GitHub Secrets
+          SSH_KEY_BASE64: ${{ secrets.PI_SSH_KEY }}
           PI_USER: ${{ secrets.PI_USERNAME }}
           PI_HOST: ssh.minhthien.io.vn
         run: |
-          # 1. Thiết lập thư mục SSH và lưu Key (Dùng printf để giữ nguyên định dạng)
+          # 1. Thiết lập thư mục SSH và giải mã Key từ Base64
           mkdir -p ~/.ssh
-          printf "%s" "$SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "$SSH_KEY_BASE64" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
           
-          # 2. Tạo file cấu hình SSH để chui qua cloudflared
+          # 2. Tạo file cấu hình SSH (Dùng IdentityFile là id_ed25519)
           cat <<EOF > ~/.ssh/config
           Host my-pi
             HostName $PI_HOST
             User $PI_USER
-            IdentityFile ~/.ssh/id_rsa
+            IdentityFile ~/.ssh/id_ed25519
             ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h
             StrictHostKeyChecking no
           EOF
 
-          # 3. Copy file JAR sang Pi (Dùng SCP qua Tunnel)
+          # 3. Copy file JAR sang Pi
           scp target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
 
-          # 4. Restart App bằng PM2 và nạp file .env
+          # 4. Restart App bằng PM2
           ssh my-pi "cd /home/minhthien/app && \
           if [ -f .env ]; then export \$(grep -v '^#' .env | xargs); fi && \
           pm2 delete spring-app || true && \
