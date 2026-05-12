@@ -38,30 +38,30 @@ jobs:
           PI_USER: ${{ secrets.PI_USERNAME }}
           PI_HOST: ssh.minhthien.io.vn
         run: |
-          # 1. Thiết lập thư mục SSH và giải mã Key
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY_BASE64" | base64 -d > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
+          # 1. Tạo thư mục và giải mã Key
+          mkdir -p $HOME/.ssh
+          echo "$SSH_KEY_BASE64" | base64 -d > $HOME/.ssh/id_ed25519
+          chmod 600 $HOME/.ssh/id_ed25519
           
-          # 2. Tạo file cấu hình SSH
-          cat <<EOF > ~/.ssh/config
+          # 2. Tạo config với đường dẫn tuyệt đối $HOME
+          cat <<EOF > $HOME/.ssh/config
           Host my-pi
             HostName $PI_HOST
             User $PI_USER
-            IdentityFile ~/.ssh/id_ed25519
+            IdentityFile $HOME/.ssh/id_ed25519
             ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h
             StrictHostKeyChecking no
           EOF
-          chmod 600 ~/.ssh/config
+          chmod 600 $HOME/.ssh/config
 
-          # 3. Dừng app cũ để tránh lock file khi truyền tải
-          ssh -F ~/.ssh/config my-pi "pm2 stop spring-app || true"
+          # 3. Dừng app cũ (Sử dụng -F để chỉ định rõ file config)
+          ssh -v -F $HOME/.ssh/config my-pi "pm2 stop spring-app || true"
 
-          # 4. Truyền file bằng RSYNC (Khắc phục lỗi file JAR bị hỏng)
-          rsync -avzP -e "ssh -F ~/.ssh/config" target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
+          # 4. Truyền file bằng RSYNC (Dùng đường dẫn tuyệt đối cho SSH)
+          rsync -avzP -e "ssh -F $HOME/.ssh/config" target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
 
-          # 5. Restart App và nạp các biến môi trường
-          ssh -F ~/.ssh/config my-pi "cd /home/minhthien/app && \
+          # 5. Khởi động lại app
+          ssh -F $HOME/.ssh/config my-pi "cd /home/minhthien/app && \
           if [ -f .env ]; then export \$(grep -v '^#' .env | xargs); fi && \
           pm2 delete spring-app || true && \
           pm2 start 'java -Xmx768M -jar spring-app.jar' \
@@ -80,7 +80,7 @@ jobs:
           --facebook.app-id=\$FACEBOOK_APP_ID \
           --facebook.app-secret=\$FACEBOOK_APP_SECRET \
           --payos.client-id=\$PAYOS_CLIENT_ID \
-          --api-key=\$PAYOS_API_KEY \
+          --payos.api-key=\$PAYOS_API_KEY \
           --payos.checksum-key=\$PAYOS_CHECKSUM_KEY \
           --app.public.base-url=\$APP_PUBLIC_BASE_URL \
           --server.forward-headers-strategy=framework && \
