@@ -34,7 +34,6 @@ jobs:
 
       - name: Deploy to Pi via Tunnel
         env:
-          # Biến này lấy từ chuỗi Base64 bạn đã dán vào GitHub Secrets
           SSH_KEY_BASE64: ${{ secrets.PI_SSH_KEY }}
           PI_USER: ${{ secrets.PI_USERNAME }}
           PI_HOST: ssh.minhthien.io.vn
@@ -44,7 +43,7 @@ jobs:
           echo "$SSH_KEY_BASE64" | base64 -d > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           
-          # 2. Tạo file cấu hình SSH (Dùng IdentityFile là id_ed25519)
+          # 2. Tạo file cấu hình SSH
           cat <<EOF > ~/.ssh/config
           Host my-pi
             HostName $PI_HOST
@@ -54,10 +53,14 @@ jobs:
             StrictHostKeyChecking no
           EOF
 
-          # 3. Copy file JAR sang Pi
+          # 3. DỪNG APP TRƯỚC KHI COPY (Quan trọng nhất: Để giải phóng file JAR cũ)
+          ssh my-pi "pm2 stop spring-app || true"
+
+          # 4. Đảm bảo thư mục tồn tại và Copy file JAR sang Pi
+          ssh my-pi "mkdir -p /home/minhthien/app"
           scp target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
 
-          # 4. Restart App bằng PM2
+          # 5. Restart App bằng PM2
           ssh my-pi "cd /home/minhthien/app && \
           if [ -f .env ]; then export \$(grep -v '^#' .env | xargs); fi && \
           pm2 delete spring-app || true && \
