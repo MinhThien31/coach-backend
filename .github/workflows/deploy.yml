@@ -53,12 +53,13 @@ jobs:
             StrictHostKeyChecking no
           EOF
 
-          # 3. DỪNG APP TRƯỚC KHI COPY (Quan trọng nhất: Để giải phóng file JAR cũ)
+          # 3. Dừng app để giải phóng tệp
           ssh my-pi "pm2 stop spring-app || true"
 
-          # 4. Đảm bảo thư mục tồn tại và Copy file JAR sang Pi
-          ssh my-pi "mkdir -p /home/minhthien/app"
-          scp target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
+          # 4. Truyền file bằng rsync (Bền bỉ hơn scp rất nhiều)
+          # Lệnh này sẽ tự động thử lại và kiểm tra tính toàn vẹn của tệp
+          run: |
+            rsync -avzP -e "ssh -F ~/.ssh/config" target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
 
           # 5. Restart App bằng PM2
           ssh my-pi "cd /home/minhthien/app && \
