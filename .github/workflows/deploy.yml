@@ -43,7 +43,7 @@ jobs:
           echo "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           
-          # 2. Tạo file cấu hình SSH để "ép" chui qua cloudflared
+          # 2. Tạo file cấu hình SSH để chui qua cloudflared
           cat <<EOF > ~/.ssh/config
           Host my-pi
             HostName $PI_HOST
@@ -53,8 +53,32 @@ jobs:
             StrictHostKeyChecking no
           EOF
 
-          # 3. Copy file JAR (Dùng SCP qua Tunnel)
+          # 3. Copy file JAR sang Pi (Dùng SCP qua Tunnel)
           scp target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
 
-          # 4. Restart App bằng PM2 (Dùng SSH qua Tunnel)
-          ssh my-pi "pm2 delete spring-app || true && pm2 start 'java -Xmx768M -jar /home/minhthien/app/spring-app.jar' --name 'spring-app' && pm2 save"
+          # 4. Restart App bằng PM2 và nạp file .env
+          # Lệnh này sẽ: Đọc file .env -> Xuất thành biến môi trường -> Chạy Java với các biến đó
+          ssh my-pi "cd /home/minhthien/app && \
+          export \$(grep -v '^#' .env | xargs) && \
+          pm2 delete spring-app || true && \
+          pm2 start 'java -Xmx768M -jar spring-app.jar' \
+          --name 'spring-app' \
+          -- \
+          --spring.datasource.url=\$SPRING_DATASOURCE_URL \
+          --spring.datasource.username=\$SPRING_DATASOURCE_USERNAME \
+          --spring.datasource.password=\$SPRING_DATASOURCE_PASSWORD \
+          --app.jwt.secret=\$APP_JWT_SECRET \
+          --cloudinary.cloud-name=\$CLOUDINARY_CLOUD_NAME \
+          --cloudinary.api-key=\$CLOUDINARY_API_KEY \
+          --cloudinary.api-secret=\$CLOUDINARY_API_SECRET \
+          --spring.mail.username=\$SPRING_MAIL_USERNAME \
+          --spring.mail.password=\$SPRING_MAIL_PASSWORD \
+          --google.client-id=\$GOOGLE_CLIENT_ID \
+          --facebook.app-id=\$FACEBOOK_APP_ID \
+          --facebook.app-secret=\$FACEBOOK_APP_SECRET \
+          --payos.client-id=\$PAYOS_CLIENT_ID \
+          --payos.api-key=\$PAYOS_API_KEY \
+          --payos.checksum-key=\$PAYOS_CHECKSUM_KEY \
+          --app.public.base-url=\$APP_PUBLIC_BASE_URL \
+          --server.forward-headers-strategy=framework && \
+          pm2 save"
