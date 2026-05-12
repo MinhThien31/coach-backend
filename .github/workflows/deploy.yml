@@ -38,9 +38,9 @@ jobs:
           PI_USER: ${{ secrets.PI_USERNAME }}
           PI_HOST: ssh.minhthien.io.vn
         run: |
-          # 1. Thiết lập thư mục SSH và lưu Key
+          # 1. Thiết lập thư mục SSH và lưu Key (Dùng printf để giữ nguyên định dạng)
           mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          printf "%s" "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           
           # 2. Tạo file cấu hình SSH để chui qua cloudflared
@@ -57,9 +57,8 @@ jobs:
           scp target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
 
           # 4. Restart App bằng PM2 và nạp file .env
-          # Lệnh này sẽ: Đọc file .env -> Xuất thành biến môi trường -> Chạy Java với các biến đó
           ssh my-pi "cd /home/minhthien/app && \
-          export \$(grep -v '^#' .env | xargs) && \
+          if [ -f .env ]; then export \$(grep -v '^#' .env | xargs); fi && \
           pm2 delete spring-app || true && \
           pm2 start 'java -Xmx768M -jar spring-app.jar' \
           --name 'spring-app' \
