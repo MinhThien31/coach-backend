@@ -1,4 +1,4 @@
-name: Deploy Spring Boot to Pi
+name: Deploy Spring Boot to AWS EC2
 
 on:
   push:
@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -24,64 +24,31 @@ jobs:
       - name: Prepare Jar
         run: |
           mkdir -p target/deploy
-          mv target/*.jar target/deploy/spring-app.jar
+          mv target/*.jar target/deploy/app.jar
 
-      - name: Install Cloudflare Client
-        run: |
-          sudo mkdir -p --mode=0755 /usr/local/bin
-          curl -L --output /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-          sudo chmod +x /usr/local/bin/cloudflared
+      - name: Deploy to AWS EC2 via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "target/deploy/app.jar"
+          target: "/home/${{ secrets.EC2_USERNAME }}/"
+          strip_components: 2
 
-      - name: Deploy to Pi via Tunnel
-        env:
-          SSH_KEY_BASE64: ${{ secrets.PI_SSH_KEY }}
-          PI_USER: ${{ secrets.PI_USERNAME }}
-          PI_HOST: ssh.minhthien.io.vn
-        run: |
-          # 1. Tạo thư mục và giải mã Key
-          mkdir -p $HOME/.ssh
-          echo "$SSH_KEY_BASE64" | base64 -d > $HOME/.ssh/id_ed25519
-          chmod 600 $HOME/.ssh/id_ed25519
-          
-          # 2. Tạo config với đường dẫn tuyệt đối $HOME
-          cat <<EOF > $HOME/.ssh/config
-          Host my-pi
-            HostName $PI_HOST
-            User $PI_USER
-            IdentityFile $HOME/.ssh/id_ed25519
-            ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h
-            StrictHostKeyChecking no
-          EOF
-          chmod 600 $HOME/.ssh/config
-
-          # 3. Dừng app cũ (Sử dụng -F để chỉ định rõ file config)
-          ssh -v -F $HOME/.ssh/config my-pi "pm2 stop spring-app || true"
-
-          # 4. Truyền file bằng RSYNC (Dùng đường dẫn tuyệt đối cho SSH)
-          rsync -avzP -e "ssh -F $HOME/.ssh/config" target/deploy/spring-app.jar my-pi:/home/minhthien/app/spring-app.jar
-
-          # 5. Khởi động lại app
-          ssh -F $HOME/.ssh/config my-pi "cd /home/minhthien/app && \
-          if [ -f .env ]; then export \$(grep -v '^#' .env | xargs); fi && \
-          pm2 delete spring-app || true && \
-          pm2 start 'java -Xmx768M -jar spring-app.jar' \
-          --name 'spring-app' \
-          -- \
-          --spring.datasource.url=\$SPRING_DATASOURCE_URL \
-          --spring.datasource.username=\$SPRING_DATASOURCE_USERNAME \
-          --spring.datasource.password=\$SPRING_DATASOURCE_PASSWORD \
-          --app.jwt.secret=\$APP_JWT_SECRET \
-          --cloudinary.cloud-name=\$CLOUDINARY_CLOUD_NAME \
-          --cloudinary.api-key=\$CLOUDINARY_API_KEY \
-          --cloudinary.api-secret=\$CLOUDINARY_API_SECRET \
-          --spring.mail.username=\$SPRING_MAIL_USERNAME \
-          --spring.mail.password=\$SPRING_MAIL_PASSWORD \
-          --google.client-id=\$GOOGLE_CLIENT_ID \
-          --facebook.app-id=\$FACEBOOK_APP_ID \
-          --facebook.app-secret=\$FACEBOOK_APP_SECRET \
-          --payos.client-id=\$PAYOS_CLIENT_ID \
-          --payos.api-key=\$PAYOS_API_KEY \
-          --payos.checksum-key=\$PAYOS_CHECKSUM_KEY \
-          --app.public.base-url=\$APP_PUBLIC_BASE_URL \
-          --server.forward-headers-strategy=framework && \
-          pm2 save"
+      - name: Restart Systemd Service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Đảm bảo file có quyền thực thi và đúng sở hữu
+            sudo chown ${{ secrets.EC2_USERNAME }}:${{ secrets.EC2_USERNAME }} /home/${{ secrets.EC2_USERNAME }}/app.jar
+            
+            # Khởi động lại service
+            sudo systemctl restart coach-backend.service
+            
+            # Kiểm tra nhanh trạng thái
+            echo "Current status:"
+            sudo systemctl status coach-backend.service | grep Active
