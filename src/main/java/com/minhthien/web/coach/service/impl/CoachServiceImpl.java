@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.DayOfWeek;
@@ -37,6 +38,7 @@ public class CoachServiceImpl implements CoachService {
 
 
     @Override
+    @Transactional(readOnly = true)
     public Page<CoachResponse> searchCoach(CoachSearchRequest request) {
 
         Sort sort;
@@ -84,6 +86,7 @@ public class CoachServiceImpl implements CoachService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CoachDetailResponse getCoachDetail(Long id) {
 
         CoachProfile coach = coachRepository.findById(id)
@@ -250,6 +253,7 @@ public class CoachServiceImpl implements CoachService {
                 .build();
     }
     @Override
+    @Transactional(readOnly = true)
     public List<CoachResponse> getFeaturedCoaches() {
 
         return coachRepository
@@ -270,6 +274,7 @@ public class CoachServiceImpl implements CoachService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CoachResponse> getTrendingCoaches() {
 
         return coachRepository
@@ -291,6 +296,7 @@ public class CoachServiceImpl implements CoachService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CoachScheduleResponse> getCoachSchedule(Long coachId) {
 
         return scheduleRepository

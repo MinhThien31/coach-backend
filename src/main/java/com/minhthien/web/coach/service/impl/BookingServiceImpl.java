@@ -30,6 +30,7 @@ public class BookingServiceImpl implements BookingService {
     private final WalletService walletService;
 
     @Override
+    @Transactional
     public BookingResponse createBooking(BookingRequest request) {
 
         String username = SecurityContextHolder
@@ -78,6 +79,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<BookingResponse> myBookings() {
 
         String username = SecurityContextHolder

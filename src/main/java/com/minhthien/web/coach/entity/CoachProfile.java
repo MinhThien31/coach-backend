@@ -7,7 +7,15 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "coach_profiles")
+@Table(
+        name = "coach_profiles",
+        indexes = {
+                @Index(name = "idx_coach_profiles_category", columnList = "category_id"),
+                @Index(name = "idx_coach_profiles_rating", columnList = "rating"),
+                @Index(name = "idx_coach_profiles_students", columnList = "students"),
+                @Index(name = "idx_coach_profiles_price", columnList = "price")
+        }
+)
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

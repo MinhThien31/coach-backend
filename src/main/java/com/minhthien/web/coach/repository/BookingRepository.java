@@ -42,19 +42,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     SELECT COUNT(b)
     FROM Booking b
     WHERE b.trainee.id = :traineeId
-    AND MONTH(b.startDate) = :month
-    AND YEAR(b.startDate) = :year
+    AND b.startDate BETWEEN :startDate AND :endDate
     """)
-    Long countSessionsThisMonth(Long traineeId, int month, int year);
+    Long countSessionsThisMonth(Long traineeId, LocalDate startDate, LocalDate endDate);
 
     @Query("""
-    SELECT SUM(b.price)
+    SELECT COALESCE(SUM(b.price), 0)
     FROM Booking b
     WHERE b.trainee.id = :traineeId
-    AND MONTH(b.startDate) = :month
-    AND YEAR(b.startDate) = :year
+    AND b.startDate BETWEEN :startDate AND :endDate
     """)
-    Double sumMonthlySpending(Long traineeId, int month, int year);
+    Double sumMonthlySpending(Long traineeId, LocalDate startDate, LocalDate endDate);
+
+    long countByTraineeIdAndStatus(Long traineeId, BookingStatus status);
 
     @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByTraineeIdAndStartDateBetween(
@@ -86,6 +86,10 @@ AND LOWER(tp.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
 
     @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByCoachId(Long coachId);
+
+    @Override
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
+    java.util.Optional<Booking> findById(Long bookingId);
 
     @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByCoachIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(

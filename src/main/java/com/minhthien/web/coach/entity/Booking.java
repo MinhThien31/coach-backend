@@ -15,7 +15,15 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "bookings")
+@Table(
+        name = "bookings",
+        indexes = {
+                @Index(name = "idx_bookings_trainee_start_date", columnList = "trainee_id,startDate"),
+                @Index(name = "idx_bookings_coach_status", columnList = "coach_id,status"),
+                @Index(name = "idx_bookings_coach_date_range", columnList = "coach_id,startDate,endDate"),
+                @Index(name = "idx_bookings_coach_slot", columnList = "coach_id,dayOfWeek,startTime,status")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor

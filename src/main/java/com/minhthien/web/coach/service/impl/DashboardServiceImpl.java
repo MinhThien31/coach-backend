@@ -2,7 +2,6 @@ package com.minhthien.web.coach.service.impl;
 
 import com.minhthien.web.coach.dto.response.CoachDashboardResponse;
 import com.minhthien.web.coach.dto.response.DashboardStatsResponse;
-import com.minhthien.web.coach.entity.Booking;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.enums.BookingStatus;
 import com.minhthien.web.coach.repository.BookingRepository;
@@ -11,10 +10,10 @@ import com.minhthien.web.coach.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +23,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final UserRepository userRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public DashboardStatsResponse getStats() {
 
         String username = SecurityContextHolder
@@ -35,25 +35,31 @@ public class DashboardServiceImpl implements DashboardService {
                 .findByUsername(username)
                 .orElseThrow();
 
-        List<Booking> bookings = bookingRepository.findByTraineeId(user.getId());
-
         LocalDate now = LocalDate.now();
+        LocalDate startOfMonth = now.withDayOfMonth(1);
+        LocalDate endOfMonth = now.withDayOfMonth(now.lengthOfMonth());
 
-        long thisMonth = bookings.stream()
-                .filter(b -> b.getStartDate().getMonth() == now.getMonth())
-                .count();
+        long thisMonth = bookingRepository.countSessionsThisMonth(
+                user.getId(),
+                startOfMonth,
+                endOfMonth
+        );
 
-        long completed = bookings.stream()
-                .filter(b -> b.getStatus() == BookingStatus.COMPLETED)
-                .count();
+        long completed = bookingRepository.countByTraineeIdAndStatus(
+                user.getId(),
+                BookingStatus.COMPLETED
+        );
 
-        long upcoming = bookings.stream()
-                .filter(b -> b.getStatus() == BookingStatus.PENDING)
-                .count();
+        long upcoming = bookingRepository.countByTraineeIdAndStatus(
+                user.getId(),
+                BookingStatus.PENDING
+        );
 
-        double spending = bookings.stream()
-                .mapToDouble(Booking::getPrice)
-                .sum();
+        double spending = bookingRepository.sumMonthlySpending(
+                user.getId(),
+                startOfMonth,
+                endOfMonth
+        );
 
         return DashboardStatsResponse.builder()
                 .sessionsThisMonth(thisMonth)
@@ -64,6 +70,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CoachDashboardResponse getCoachDashboard() {
         String username = SecurityContextHolder
                 .getContext()
