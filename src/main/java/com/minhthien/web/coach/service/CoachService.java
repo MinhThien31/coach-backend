@@ -5,6 +5,7 @@ import com.minhthien.web.coach.dto.response.*;
 import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface CoachService {
@@ -16,7 +17,7 @@ public interface CoachService {
     ScheduleResponse createSchedule(CreateScheduleRequest request);
     List<CoachResponse> getFeaturedCoaches();
     List<CoachResponse> getTrendingCoaches();
-    List<CoachScheduleResponse> getCoachSchedule(Long coachId);
+    List<CoachScheduleResponse> getCoachSchedule(Long coachId, LocalDate startDate, LocalDate endDate);
     CoachResponse createCoach(CreateCoachRequest request);
 
     CoachResponse updateCoach(Long id, UpdateCoachRequest request);

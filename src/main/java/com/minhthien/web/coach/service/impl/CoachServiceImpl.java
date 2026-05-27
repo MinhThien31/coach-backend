@@ -3,6 +3,7 @@ package com.minhthien.web.coach.service.impl;
 import com.minhthien.web.coach.dto.request.*;
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.*;
+import com.minhthien.web.coach.enums.BookingStatus;
 import com.minhthien.web.coach.repository.*;
 import com.minhthien.web.coach.service.CoachService;
 import com.minhthien.web.coach.service.ImageService;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -107,11 +109,7 @@ public class CoachServiceImpl implements CoachService {
         List<CoachScheduleResponse> schedules = scheduleRepository
                 .findByCoachId(id)
                 .stream()
-                .map(s -> CoachScheduleResponse.builder()
-                        .dayOfWeek(s.getDayOfWeek().name())
-                        .startTime(s.getStartTime().toString())
-                        .endTime(s.getEndTime().toString())
-                        .build())
+                .map(s -> mapCoachScheduleResponse(s, null, null))
                 .toList();
 
         List<ReviewResponse> reviews = reviewRepository
@@ -297,17 +295,79 @@ public class CoachServiceImpl implements CoachService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CoachScheduleResponse> getCoachSchedule(Long coachId) {
+    public List<CoachScheduleResponse> getCoachSchedule(Long coachId, LocalDate startDate, LocalDate endDate) {
 
         return scheduleRepository
                 .findByCoachId(coachId)
                 .stream()
-                .map(s -> CoachScheduleResponse.builder()
-                        .dayOfWeek(s.getDayOfWeek().name())
-                        .startTime(s.getStartTime().toString())
-                        .endTime(s.getEndTime().toString())
-                        .build())
+                .filter(s -> matchesRequestedRange(s, startDate, endDate))
+                .map(s -> mapCoachScheduleResponse(s, startDate, endDate))
                 .toList();
+    }
+
+    private CoachScheduleResponse mapCoachScheduleResponse(
+            CoachSchedule schedule,
+            LocalDate requestedStartDate,
+            LocalDate requestedEndDate
+    ) {
+        LocalDate checkStartDate;
+        LocalDate checkEndDate;
+
+        if (requestedStartDate == null && requestedEndDate == null) {
+            checkStartDate = schedule.getStartDate();
+            checkEndDate = schedule.getEndDate();
+        } else {
+            checkStartDate = requestedStartDate != null ? requestedStartDate : requestedEndDate;
+            checkEndDate = requestedEndDate != null ? requestedEndDate : checkStartDate;
+        }
+
+        List<Booking> bookings = bookingRepository.findOverlappingBookings(
+                schedule.getCoach().getId(),
+                schedule.getDayOfWeek(),
+                schedule.getStartTime(),
+                schedule.getEndTime(),
+                checkStartDate,
+                checkEndDate,
+                List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED)
+        );
+
+        Booking booking = bookings.isEmpty() ? null : bookings.get(0);
+
+        return CoachScheduleResponse.builder()
+                .id(schedule.getId())
+                .startDate(schedule.getStartDate())
+                .endDate(schedule.getEndDate())
+                .dayOfWeek(schedule.getDayOfWeek().name())
+                .startTime(schedule.getStartTime().toString())
+                .endTime(schedule.getEndTime().toString())
+                .status(booking == null ? "AVAILABLE" : "BOOKED")
+                .bookingId(booking == null ? null : booking.getId())
+                .bookingStatus(booking == null ? null : booking.getStatus().name())
+                .build();
+    }
+
+    private boolean matchesRequestedRange(CoachSchedule schedule, LocalDate startDate, LocalDate endDate) {
+        if (startDate == null && endDate == null) {
+            return true;
+        }
+
+        LocalDate rangeStart = startDate != null ? startDate : endDate;
+        LocalDate rangeEnd = endDate != null ? endDate : rangeStart;
+
+        boolean overlapsScheduleRange = !schedule.getStartDate().isAfter(rangeEnd)
+                && !schedule.getEndDate().isBefore(rangeStart);
+
+        return overlapsScheduleRange && rangeContainsDayOfWeek(rangeStart, rangeEnd, schedule.getDayOfWeek());
+    }
+
+    private boolean rangeContainsDayOfWeek(LocalDate startDate, LocalDate endDate, DayOfWeek dayOfWeek) {
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            if (date.getDayOfWeek() == dayOfWeek) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override

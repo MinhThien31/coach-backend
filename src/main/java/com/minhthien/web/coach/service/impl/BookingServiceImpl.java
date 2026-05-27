@@ -51,11 +51,14 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new RuntimeException("Coach not found"));
 
         boolean exists = bookingRepository
-                .existsByCoachIdAndDayOfWeekAndStartTimeAndStatusNot(
+                .existsOverlappingBooking(
                         coach.getId(),
                         request.getDayOfWeek(),
                         request.getStartTime(),
-                        BookingStatus.CANCELLED
+                        request.getEndTime(),
+                        request.getStartDate(),
+                        request.getEndDate(),
+                        List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED)
                 );
 
         if (exists) {

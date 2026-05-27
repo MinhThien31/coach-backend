@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -22,6 +23,49 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             DayOfWeek dayOfWeek,
             LocalTime startTime,
             BookingStatus status
+    );
+
+    @Query("""
+    SELECT COUNT(b) > 0
+    FROM Booking b
+    WHERE b.coach.id = :coachId
+    AND b.dayOfWeek = :dayOfWeek
+    AND b.startTime = :startTime
+    AND b.endTime = :endTime
+    AND b.status IN :statuses
+    AND b.startDate <= :endDate
+    AND b.endDate >= :startDate
+    """)
+    boolean existsOverlappingBooking(
+            Long coachId,
+            DayOfWeek dayOfWeek,
+            LocalTime startTime,
+            LocalTime endTime,
+            LocalDate startDate,
+            LocalDate endDate,
+            Collection<BookingStatus> statuses
+    );
+
+    @Query("""
+    SELECT b
+    FROM Booking b
+    WHERE b.coach.id = :coachId
+    AND b.dayOfWeek = :dayOfWeek
+    AND b.startTime = :startTime
+    AND b.endTime = :endTime
+    AND b.status IN :statuses
+    AND b.startDate <= :endDate
+    AND b.endDate >= :startDate
+    ORDER BY b.startDate ASC
+    """)
+    List<Booking> findOverlappingBookings(
+            Long coachId,
+            DayOfWeek dayOfWeek,
+            LocalTime startTime,
+            LocalTime endTime,
+            LocalDate startDate,
+            LocalDate endDate,
+            Collection<BookingStatus> statuses
     );
 
     @Query("""

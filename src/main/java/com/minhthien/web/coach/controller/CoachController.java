@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -56,10 +57,12 @@ public class CoachController {
 
     @GetMapping("/{id}/schedule")
     public ApiResponse<List<CoachScheduleResponse>> getSchedule(
-            @PathVariable Long id
+            @PathVariable Long id,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate
     ) {
         return ApiResponse.<List<CoachScheduleResponse>>builder()
-                .data(coachService.getCoachSchedule(id))
+                .data(coachService.getCoachSchedule(id, startDate, endDate))
                 .build();
     }
     @PostMapping(value = "/profile", consumes = "multipart/form-data")
