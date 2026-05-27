@@ -7,6 +7,10 @@ import com.minhthien.web.coach.entity.Booking;
 import com.minhthien.web.coach.entity.CoachProfile;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.enums.BookingStatus;
+import com.minhthien.web.coach.enums.UserRole;
+import com.minhthien.web.coach.exception.BadRequestException;
+import com.minhthien.web.coach.exception.ResourceNotFoundException;
+import com.minhthien.web.coach.exception.UnauthorizedException;
 import com.minhthien.web.coach.repository.BookingRepository;
 import com.minhthien.web.coach.repository.CoachRepository;
 import com.minhthien.web.coach.repository.UserRepository;
@@ -96,6 +100,36 @@ public class BookingServiceImpl implements BookingService {
                 .stream()
                 .map(this::mapBookingResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse confirmBooking(Long bookingId) {
+        String username = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository
+                .findByUsername(username)
+                .orElseThrow();
+
+        Booking booking = bookingRepository
+                .findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (!booking.getCoach().getUser().getId().equals(currentUser.getId())
+                && currentUser.getRole() != UserRole.ADMIN) {
+            throw new UnauthorizedException("You cannot confirm this booking");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new BadRequestException("Only pending booking can be confirmed");
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        bookingRepository.save(booking);
+        return mapBookingResponse(booking);
     }
 
     @Override
