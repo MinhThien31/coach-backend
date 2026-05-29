@@ -2,6 +2,7 @@ package com.minhthien.web.coach.controller;
 
 
 import com.minhthien.web.coach.dto.request.BookingRequest;
+import com.minhthien.web.coach.dto.request.CancelBookingRequest;
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.service.BookingService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -46,6 +47,27 @@ public class BookingController {
                 .build();
     }
 
+    @PutMapping("/{id}/reject")
+    public ApiResponse<BookingResponse> rejectBooking(
+            @PathVariable Long id
+    ) {
+
+        return ApiResponse.<BookingResponse>builder()
+                .data(bookingService.rejectBooking(id))
+                .build();
+    }
+
+    @PutMapping("/{id}/cancel-by-coach")
+    public ApiResponse<BookingResponse> cancelBookingByCoach(
+            @PathVariable Long id,
+            @RequestBody(required = false) CancelBookingRequest request
+    ) {
+
+        return ApiResponse.<BookingResponse>builder()
+                .data(bookingService.cancelBookingByCoach(id, request == null ? null : request.getReason()))
+                .build();
+    }
+
     @PutMapping("/{id}/complete")
     public ApiResponse<BookingResponse> completeBooking(
             @PathVariable Long id
@@ -58,10 +80,11 @@ public class BookingController {
 
     @PutMapping("/{id}/cancel")
     public ApiResponse<String> cancelBooking(
-            @PathVariable Long id
+            @PathVariable Long id,
+            @RequestBody(required = false) CancelBookingRequest request
     ) {
 
-        bookingService.cancelBooking(id);
+        bookingService.cancelBooking(id, request == null ? null : request.getReason());
 
         return ApiResponse.<String>builder()
                 .data("Booking cancelled")

@@ -10,7 +10,11 @@ public interface TraineeService {
 
     TraineeResponse createTrainee(CreateTraineeRequest request);
 
+    TraineeResponse getMyTrainee(Long currentUserId);
+
     TraineeResponse updateTrainee(Long id, UpdateTraineeRequest request);
+
+    TraineeResponse updateMyTrainee(Long currentUserId, UpdateTraineeRequest request);
 
     void deleteTrainee(Long id);
     List<TraineeResponse> searchMyTrainees(String keyword);

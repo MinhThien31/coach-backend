@@ -9,6 +9,8 @@ public interface BookingService {
     BookingResponse createBooking(BookingRequest request);
     List<BookingResponse> myBookings();
     BookingResponse confirmBooking(Long bookingId);
+    BookingResponse rejectBooking(Long bookingId);
+    BookingResponse cancelBookingByCoach(Long bookingId, String reason);
     BookingResponse completeBooking(Long bookingId);
-    void cancelBooking(Long bookingId);
+    void cancelBooking(Long bookingId, String reason);
 }

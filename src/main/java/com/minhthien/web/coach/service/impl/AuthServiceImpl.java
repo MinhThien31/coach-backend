@@ -9,12 +9,14 @@ import com.minhthien.web.coach.dto.request.RegisterRequest;
 import com.minhthien.web.coach.dto.response.AuthResponse;
 import com.minhthien.web.coach.dto.response.UserResponse;
 import com.minhthien.web.coach.entity.PasswordResetOtp;
+import com.minhthien.web.coach.entity.TraineeProfile;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.enums.UserRole;
 import com.minhthien.web.coach.exception.BadRequestException;
 import com.minhthien.web.coach.exception.DuplicateResourceException;
 import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.repository.PasswordResetOtpRepository;
+import com.minhthien.web.coach.repository.TraineeProfileRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.security.JwtTokenProvider;
 import com.minhthien.web.coach.service.AuthService;
@@ -31,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -45,6 +48,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final PasswordResetOtpRepository otpRepository;
     private final MailService mailService;
+    private final TraineeProfileRepository traineeProfileRepository;
 
     @Value("${google.client-id}")
     private String googleClientId;
@@ -73,6 +77,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         user = userRepository.save(user);
+        ensureDefaultTraineeProfile(user);
         String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
         return buildAuthResponse(user, token);
     }
@@ -152,10 +157,12 @@ public class AuthServiceImpl implements AuthService {
                     .orElseGet(() -> userRepository.save(User.builder()
                             .email(email)
                             .username(name)
+                            .fullName(name)
                             .avatarUrl(picture)
                             .role(UserRole.TRAINEES)
                             .active(true)
                             .build()));
+            ensureDefaultTraineeProfile(user);
 
             String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
             return AuthResponse.builder()
@@ -191,10 +198,12 @@ public class AuthServiceImpl implements AuthService {
                     .orElseGet(() -> userRepository.save(User.builder()
                             .email(finalEmail)
                             .username(name)
+                            .fullName(name)
                             .role(UserRole.TRAINEES)
                             .active(true)
                             .provider("FACEBOOK")
                             .build()));
+            ensureDefaultTraineeProfile(user);
 
             String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
             return AuthResponse.builder()
@@ -233,5 +242,18 @@ public class AuthServiceImpl implements AuthService {
                 .avatarUrl(user.getAvatarUrl())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private void ensureDefaultTraineeProfile(User user) {
+        if (user.getRole() != UserRole.TRAINEES) {
+            return;
+        }
+
+        traineeProfileRepository.findByUserId(user.getId())
+                .orElseGet(() -> traineeProfileRepository.save(TraineeProfile.builder()
+                        .user(user)
+                        .avatar(user.getAvatarUrl())
+                        .joinedDate(LocalDate.now())
+                        .build()));
     }
 }

@@ -140,6 +140,27 @@ public class ChatServiceImpl implements ChatService {
         return mapMessage(savedMessage, currentUserId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public long getUnreadCount(Long currentUserId) {
+        return chatMessageRepository.countByReceiverIdAndReadFalse(currentUserId);
+    }
+
+    @Override
+    @Transactional
+    public void markConversationRead(Long currentUserId, Long conversationId) {
+        getConversationForUser(currentUserId, conversationId);
+        chatMessageRepository.markConversationRead(conversationId, currentUserId, LocalDateTime.now());
+    }
+
+    @Override
+    @Transactional
+    public void deleteConversation(Long currentUserId, Long conversationId) {
+        Conversation conversation = getConversationForUser(currentUserId, conversationId);
+        chatMessageRepository.deleteByConversationId(conversationId);
+        conversationRepository.delete(conversation);
+    }
+
     private Conversation getConversationForUser(Long currentUserId, Long conversationId) {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conversation", "id", conversationId));

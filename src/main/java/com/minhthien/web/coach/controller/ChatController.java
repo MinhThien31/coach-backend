@@ -16,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/chat")
@@ -61,5 +62,30 @@ public class ChatController {
 
         ChatMessageResponse response = chatService.sendMessage(currentUser.getId(), conversationId, request.getContent());
         return ResponseEntity.ok(ApiResponse.success("Message sent", response));
+    }
+
+    @GetMapping("/unread-count")
+    public ResponseEntity<ApiResponse<Map<String, Long>>> getUnreadCount(
+            @AuthenticationPrincipal User currentUser) {
+
+        return ResponseEntity.ok(ApiResponse.success(Map.of("unreadCount", chatService.getUnreadCount(currentUser.getId()))));
+    }
+
+    @PutMapping("/conversations/{conversationId}/read")
+    public ResponseEntity<ApiResponse<Void>> markConversationRead(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long conversationId) {
+
+        chatService.markConversationRead(currentUser.getId(), conversationId);
+        return ResponseEntity.ok(ApiResponse.success("Conversation marked as read", null));
+    }
+
+    @DeleteMapping("/conversations/{conversationId}")
+    public ResponseEntity<ApiResponse<Void>> deleteConversation(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long conversationId) {
+
+        chatService.deleteConversation(currentUser.getId(), conversationId);
+        return ResponseEntity.ok(ApiResponse.success("Conversation deleted successfully", null));
     }
 }

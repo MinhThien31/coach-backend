@@ -55,7 +55,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedOrigins(List.of("https://coachfinder-smoky.vercel.app", "http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setAllowCredentials(true);
@@ -83,8 +83,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/skills/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coaches/featured", "/api/coaches/trending").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coaches/coachDetail/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coaches/*/schedule-with-availability").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/coaches/search").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/wallets/top-up/payos/webhook").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

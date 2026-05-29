@@ -76,5 +76,11 @@ public class Booking {
 
     private LocalDateTime settledAt;
 
+    private String cancellationReason;
+
+    private String cancelledBy;
+
+    private LocalDateTime cancelledAt;
+
     private LocalDateTime createdAt;
 }

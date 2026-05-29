@@ -20,7 +20,12 @@ public class CoachVideo {
 
     private String title;
 
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     private String videoUrl;
+
+    private String thumbnailUrl;
 
     private String format;
 
@@ -28,12 +33,25 @@ public class CoachVideo {
 
     private String resolution;
 
+    private Long duration;
+
+    private String difficulty;
+
+    private String visibility;
+
+    @Builder.Default
+    private Long likes = 0L;
+
+    @Builder.Default
+    private Boolean isPremium = false;
+
     private LocalDate uploadDate;
 
     @Enumerated(EnumType.STRING)
     private VideoType videoType;
 
     @Column(name = "view_count")
+    @Builder.Default
     private Long viewCount = 0L;
 
     private String tags;

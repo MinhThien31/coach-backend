@@ -4,9 +4,11 @@ import com.minhthien.web.coach.dto.request.CreateTraineeRequest;
 import com.minhthien.web.coach.dto.request.UpdateTraineeRequest;
 import com.minhthien.web.coach.dto.response.ApiResponse;
 import com.minhthien.web.coach.dto.response.TraineeResponse;
+import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.service.TraineeService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +21,25 @@ import java.util.List;
 public class TraineeController {
 
     private final TraineeService traineeService;
+
+    @GetMapping("/me")
+    public ApiResponse<TraineeResponse> getMyTrainee(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ApiResponse.<TraineeResponse>builder()
+                .data(traineeService.getMyTrainee(currentUser.getId()))
+                .build();
+    }
+
+    @PutMapping(value = "/me", consumes = "multipart/form-data")
+    public ApiResponse<TraineeResponse> updateMyTrainee(
+            @AuthenticationPrincipal User currentUser,
+            @ModelAttribute UpdateTraineeRequest request
+    ) {
+        return ApiResponse.<TraineeResponse>builder()
+                .data(traineeService.updateMyTrainee(currentUser.getId(), request))
+                .build();
+    }
 
     @PostMapping(value = "/profile", consumes = "multipart/form-data")
     public ApiResponse<TraineeResponse> createTrainee(

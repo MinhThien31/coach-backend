@@ -4,10 +4,11 @@ import com.minhthien.web.coach.entity.WalletTransaction;
 import com.minhthien.web.coach.enums.WalletTransactionType;
 import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 
-public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, Long> {
+public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, Long>, JpaSpecificationExecutor<WalletTransaction> {
     List<WalletTransaction> findTop50ByWalletIdOrderByCreatedAtDesc(Long walletId);
     List<WalletTransaction> findTop100ByWalletIdAndTypeOrderByCreatedAtDesc(Long walletId, WalletTransactionType type);
     long countByWalletId(Long walletId);

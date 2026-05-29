@@ -15,4 +15,10 @@ public interface ChatService {
     Page<ChatMessageResponse> getConversationMessages(Long currentUserId, Long conversationId, int page, int size);
 
     ChatMessageResponse sendMessage(Long currentUserId, Long conversationId, String content);
+
+    long getUnreadCount(Long currentUserId);
+
+    void markConversationRead(Long currentUserId, Long conversationId);
+
+    void deleteConversation(Long currentUserId, Long conversationId);
 }

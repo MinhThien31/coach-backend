@@ -2,12 +2,13 @@ package com.minhthien.web.coach.controller;
 
 import com.minhthien.web.coach.dto.request.*;
 import com.minhthien.web.coach.dto.response.*;
+import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.service.CoachService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -65,6 +66,45 @@ public class CoachController {
                 .data(coachService.getCoachSchedule(id, startDate, endDate))
                 .build();
     }
+
+    @GetMapping("/{id}/available-slots")
+    public ApiResponse<List<CoachScheduleResponse>> getAvailableSlots(
+            @PathVariable Long id,
+            @RequestParam LocalDate date
+    ) {
+        return ApiResponse.<List<CoachScheduleResponse>>builder()
+                .data(coachService.getAvailableSlots(id, date))
+                .build();
+    }
+
+    @GetMapping("/{id}/schedule-with-availability")
+    public ApiResponse<List<CoachScheduleResponse>> getScheduleWithAvailability(
+            @PathVariable Long id
+    ) {
+        return ApiResponse.<List<CoachScheduleResponse>>builder()
+                .data(coachService.getScheduleWithAvailability(id))
+                .build();
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<CoachResponse> getMyCoachProfile(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ApiResponse.<CoachResponse>builder()
+                .data(coachService.getMyCoachProfile(currentUser.getId()))
+                .build();
+    }
+
+    @PutMapping(value = "/me", consumes = "multipart/form-data")
+    public ApiResponse<CoachResponse> updateMyCoachProfile(
+            @AuthenticationPrincipal User currentUser,
+            @ModelAttribute UpdateCoachRequest request
+    ) {
+        return ApiResponse.<CoachResponse>builder()
+                .data(coachService.updateMyCoachProfile(currentUser.getId(), request))
+                .build();
+    }
+
     @PostMapping(value = "/profile", consumes = "multipart/form-data")
     public ApiResponse<CoachResponse> createCoach(
             @ModelAttribute CreateCoachRequest request
@@ -116,6 +156,28 @@ public class CoachController {
 
         return ApiResponse.<ScheduleResponse>builder()
                 .data(coachService.createSchedule(request))
+                .build();
+    }
+
+    @PutMapping("/schedules/{scheduleId}")
+    public ApiResponse<ScheduleResponse> updateSchedule(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long scheduleId,
+            @RequestBody CreateScheduleRequest request) {
+
+        return ApiResponse.<ScheduleResponse>builder()
+                .data(coachService.updateSchedule(currentUser.getId(), scheduleId, request))
+                .build();
+    }
+
+    @DeleteMapping("/schedules/{scheduleId}")
+    public ApiResponse<Void> deleteSchedule(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long scheduleId) {
+
+        coachService.deleteSchedule(currentUser.getId(), scheduleId);
+        return ApiResponse.<Void>builder()
+                .message("Schedule deleted successfully")
                 .build();
     }
 

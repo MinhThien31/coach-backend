@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Data
@@ -16,7 +17,11 @@ public class BookingListResponse {
 
     private String coachName;
 
+    private String coachAvatar;
+
     private String traineeName;
+
+    private String traineeAvatar;
 
     private String sport;
 
@@ -31,4 +36,10 @@ public class BookingListResponse {
     private Double price;
 
     private BookingStatus status;
+
+    private String cancellationReason;
+
+    private String cancelledBy;
+
+    private LocalDateTime cancelledAt;
 }

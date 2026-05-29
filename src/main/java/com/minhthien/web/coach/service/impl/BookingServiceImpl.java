@@ -13,6 +13,7 @@ import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.exception.UnauthorizedException;
 import com.minhthien.web.coach.repository.BookingRepository;
 import com.minhthien.web.coach.repository.CoachRepository;
+import com.minhthien.web.coach.repository.ScheduleRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.BookingService;
 import com.minhthien.web.coach.service.WalletService;
@@ -30,6 +31,7 @@ public class BookingServiceImpl implements BookingService {
 
     private final BookingRepository bookingRepository;
     private final CoachRepository coachRepository;
+    private final ScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
     private final WalletService walletService;
 
@@ -49,6 +51,21 @@ public class BookingServiceImpl implements BookingService {
         CoachProfile coach = coachRepository
                 .findById(request.getCoachId())
                 .orElseThrow(() -> new RuntimeException("Coach not found"));
+
+        ensureFutureBookingTime(request);
+
+        boolean scheduleExists = scheduleRepository.existsBookableSlot(
+                coach.getId(),
+                request.getDayOfWeek(),
+                request.getStartTime(),
+                request.getEndTime(),
+                request.getStartDate(),
+                request.getEndDate()
+        );
+
+        if (!scheduleExists) {
+            throw new BadRequestException("This time slot is not open for booking");
+        }
 
         boolean exists = bookingRepository
                 .existsOverlappingBooking(
@@ -101,6 +118,7 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository
                 .findByTraineeId(trainee.getId())
                 .stream()
+                .filter(this::isVisibleBooking)
                 .map(this::mapBookingResponse)
                 .toList();
     }
@@ -108,27 +126,10 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse confirmBooking(Long bookingId) {
-        String username = SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getName();
-
-        User currentUser = userRepository
-                .findByUsername(username)
-                .orElseThrow();
-
-        Booking booking = bookingRepository
-                .findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
-
-        if (!booking.getCoach().getUser().getId().equals(currentUser.getId())
-                && currentUser.getRole() != UserRole.ADMIN) {
-            throw new UnauthorizedException("You cannot confirm this booking");
-        }
-
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new BadRequestException("Only pending booking can be confirmed");
-        }
+        User currentUser = getCurrentUser();
+        Booking booking = getBooking(bookingId);
+        ensureCoachOwnerOrAdmin(currentUser, booking, "confirm");
+        ensureStatus(booking, BookingStatus.PENDING, "Only pending booking can be confirmed");
 
         booking.setStatus(BookingStatus.CONFIRMED);
         bookingRepository.save(booking);
@@ -137,28 +138,41 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional
+    public BookingResponse rejectBooking(Long bookingId) {
+        User currentUser = getCurrentUser();
+        Booking booking = getBooking(bookingId);
+        ensureCoachOwnerOrAdmin(currentUser, booking, "reject");
+        ensureStatus(booking, BookingStatus.PENDING, "Only pending booking can be rejected");
+
+        booking.setStatus(BookingStatus.REJECTED);
+        bookingRepository.save(booking);
+        return mapBookingResponse(booking);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse cancelBookingByCoach(Long bookingId, String reason) {
+        User currentUser = getCurrentUser();
+        Booking booking = getBooking(bookingId);
+        ensureCoachOwnerOrAdmin(currentUser, booking, "cancel");
+
+        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new BadRequestException("Only pending or confirmed booking can be cancelled by coach");
+        }
+
+        ensureCancellationAllowed(booking, reason);
+        applyCancellation(booking, reason, "COACH");
+        bookingRepository.save(booking);
+        return mapBookingResponse(booking);
+    }
+
+    @Override
+    @Transactional
     public BookingResponse completeBooking(Long bookingId) {
-        String username = SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getName();
-
-        User currentUser = userRepository
-                .findByUsername(username)
-                .orElseThrow();
-
-        Booking booking = bookingRepository
-                .findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
-
-        if (!booking.getCoach().getUser().getId().equals(currentUser.getId())
-                && currentUser.getRole() != com.minhthien.web.coach.enums.UserRole.ADMIN) {
-            throw new RuntimeException("You cannot complete this booking");
-        }
-
-        if (booking.getStatus() == BookingStatus.CANCELLED) {
-            throw new RuntimeException("Cancelled booking cannot be completed");
-        }
+        User currentUser = getCurrentUser();
+        Booking booking = getBooking(bookingId);
+        ensureCoachOwnerOrAdmin(currentUser, booking, "complete");
+        ensureStatus(booking, BookingStatus.CONFIRMED, "Only confirmed booking can be completed");
 
         if (!Boolean.TRUE.equals(booking.getPaymentSettled())) {
             BookingSettlementResult settlementResult = walletService.settleBookingPayment(booking);
@@ -176,34 +190,89 @@ public class BookingServiceImpl implements BookingService {
 
     @Transactional
     @Override
-    public void cancelBooking(Long bookingId) {
+    public void cancelBooking(Long bookingId, String reason) {
+        User user = getCurrentUser();
+        Booking booking = getBooking(bookingId);
 
+        if (!booking.getTrainee().getId().equals(user.getId())) {
+            throw new UnauthorizedException("You cannot cancel this booking");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new BadRequestException("Only pending or confirmed booking can be cancelled");
+        }
+
+        ensureCancellationAllowed(booking, reason);
+        applyCancellation(booking, reason, "TRAINEE");
+        bookingRepository.save(booking);
+    }
+
+    private User getCurrentUser() {
         String username = SecurityContextHolder
                 .getContext()
                 .getAuthentication()
                 .getName();
 
-        User user = userRepository
+        return userRepository
                 .findByUsername(username)
-                .orElseThrow();
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
 
-        Booking booking = bookingRepository
+    private Booking getBooking(Long bookingId) {
+        return bookingRepository
                 .findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+    }
 
-        if (!booking.getTrainee().getId().equals(user.getId())) {
-            throw new RuntimeException("You cannot cancel this booking");
+    private void ensureCoachOwnerOrAdmin(User currentUser, Booking booking, String action) {
+        if (!booking.getCoach().getUser().getId().equals(currentUser.getId())
+                && currentUser.getRole() != UserRole.ADMIN) {
+            throw new UnauthorizedException("You cannot " + action + " this booking");
+        }
+    }
+
+    private void ensureStatus(Booking booking, BookingStatus expectedStatus, String message) {
+        if (booking.getStatus() != expectedStatus) {
+            throw new BadRequestException(message);
+        }
+    }
+
+    private void ensureCancellationAllowed(Booking booking, String reason) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new BadRequestException("Cancellation reason is required");
         }
 
+        LocalDateTime sessionStart = LocalDateTime.of(booking.getStartDate(), booking.getStartTime());
+        if (LocalDateTime.now().plusHours(24).isAfter(sessionStart)) {
+            throw new BadRequestException("Booking can only be cancelled at least 24 hours before start time");
+        }
+    }
+
+    private void ensureFutureBookingTime(BookingRequest request) {
+        LocalDateTime startAt = LocalDateTime.of(request.getStartDate(), request.getStartTime());
+        if (!startAt.isAfter(LocalDateTime.now())) {
+            throw new BadRequestException("Cannot book a past time slot");
+        }
+    }
+
+    private void applyCancellation(Booking booking, String reason, String cancelledBy) {
         booking.setStatus(BookingStatus.CANCELLED);
-        bookingRepository.save(booking);
+        booking.setCancellationReason(reason.trim());
+        booking.setCancelledBy(cancelledBy);
+        booking.setCancelledAt(LocalDateTime.now());
+    }
+
+    private boolean isVisibleBooking(Booking booking) {
+        return !LocalDateTime.of(booking.getStartDate(), booking.getEndTime()).isBefore(LocalDateTime.now());
     }
 
     private BookingResponse mapBookingResponse(Booking booking) {
         return BookingResponse.builder()
                 .id(booking.getId())
                 .coachName(booking.getCoach().getUser().getFullName())
+                .coachAvatar(booking.getCoach().getAvatarUrl())
                 .traineeName(booking.getTrainee().getFullName())
+                .traineeAvatar(booking.getTrainee().getAvatarUrl())
                 .startDate(booking.getStartDate())
                 .endDate(booking.getEndDate())
                 .dayOfWeek(booking.getDayOfWeek())
@@ -217,6 +286,9 @@ public class BookingServiceImpl implements BookingService {
                 .settledAmount(booking.getSettledAmount())
                 .adminCommissionAmount(booking.getAdminCommissionAmount())
                 .coachPayoutAmount(booking.getCoachPayoutAmount())
+                .cancellationReason(booking.getCancellationReason())
+                .cancelledBy(booking.getCancelledBy())
+                .cancelledAt(booking.getCancelledAt())
                 .build();
     }
 }

@@ -4,6 +4,10 @@ import com.minhthien.web.coach.dto.request.*;
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.*;
 import com.minhthien.web.coach.enums.BookingStatus;
+import com.minhthien.web.coach.enums.UserRole;
+import com.minhthien.web.coach.exception.BadRequestException;
+import com.minhthien.web.coach.exception.ResourceNotFoundException;
+import com.minhthien.web.coach.exception.UnauthorizedException;
 import com.minhthien.web.coach.repository.*;
 import com.minhthien.web.coach.service.CoachService;
 import com.minhthien.web.coach.service.ImageService;
@@ -229,6 +233,8 @@ public class CoachServiceImpl implements CoachService {
     @Override
     public ScheduleResponse createSchedule(CreateScheduleRequest request) {
 
+        ensureFutureSchedule(request);
+
         CoachProfile coach = coachRepository.findById(request.getCoachId())
                 .orElseThrow(() -> new RuntimeException("Coach not found"));
 
@@ -301,8 +307,42 @@ public class CoachServiceImpl implements CoachService {
                 .findByCoachId(coachId)
                 .stream()
                 .filter(s -> matchesRequestedRange(s, startDate, endDate))
+                .filter(this::isVisibleSchedule)
                 .map(s -> mapCoachScheduleResponse(s, startDate, endDate))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CoachScheduleResponse> getAvailableSlots(Long coachId, LocalDate date) {
+        if (date == null) {
+            throw new BadRequestException("date is required");
+        }
+
+        return scheduleRepository
+                .findByCoachId(coachId)
+                .stream()
+                .filter(s -> !s.getStartDate().isAfter(date)
+                        && !s.getEndDate().isBefore(date)
+                        && s.getDayOfWeek() == date.getDayOfWeek())
+                .filter(this::isVisibleSchedule)
+                .map(s -> mapCoachScheduleResponse(s, date, date))
+                .filter(CoachScheduleResponse::getAvailable)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CoachScheduleResponse> getScheduleWithAvailability(Long coachId) {
+        return getCoachSchedule(coachId, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CoachResponse getMyCoachProfile(Long currentUserId) {
+        CoachProfile coach = coachRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Coach profile not found"));
+        return mapCoachResponse(coach);
     }
 
     private CoachScheduleResponse mapCoachScheduleResponse(
@@ -340,6 +380,7 @@ public class CoachServiceImpl implements CoachService {
                 .dayOfWeek(schedule.getDayOfWeek().name())
                 .startTime(schedule.getStartTime().toString())
                 .endTime(schedule.getEndTime().toString())
+                .available(booking == null)
                 .status(booking == null ? "AVAILABLE" : "BOOKED")
                 .bookingId(booking == null ? null : booking.getId())
                 .bookingStatus(booking == null ? null : booking.getStatus().name())
@@ -370,6 +411,29 @@ public class CoachServiceImpl implements CoachService {
         return false;
     }
 
+    private boolean isVisibleSchedule(CoachSchedule schedule) {
+        LocalDate today = LocalDate.now();
+        if (schedule.getEndDate().isBefore(today)) {
+            return false;
+        }
+        return !schedule.getEndDate().isEqual(today)
+                || schedule.getEndTime().isAfter(LocalTime.now());
+    }
+
+    private void ensureFutureSchedule(CreateScheduleRequest request) {
+        if (request.getEndTime() != null && request.getStartTime() != null
+                && !request.getEndTime().isAfter(request.getStartTime())) {
+            throw new BadRequestException("Schedule end time must be after start time");
+        }
+
+        if (request.getStartDate() != null && request.getStartTime() != null) {
+            LocalDateTime startAt = LocalDateTime.of(request.getStartDate(), request.getStartTime());
+            if (!startAt.isAfter(LocalDateTime.now())) {
+                throw new BadRequestException("Cannot create schedule in the past");
+            }
+        }
+    }
+
     @Override
     public CoachResponse createCoach(CreateCoachRequest request) {
 
@@ -384,7 +448,7 @@ public class CoachServiceImpl implements CoachService {
 
         Category category = categoryRepository
                 .findById(request.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
         String avatarUrl = imageService.upload(request.getAvatar());
 
@@ -427,6 +491,7 @@ public class CoachServiceImpl implements CoachService {
         CoachProfile coach = coachRepository
                 .findById(id)
                 .orElseThrow(() -> new RuntimeException("Coach not found"));
+        ensureCoachOwnerOrAdmin(coach);
 
         if (request.getCategoryId() != null) {
 
@@ -472,6 +537,114 @@ public class CoachServiceImpl implements CoachService {
                 .price(coach.getPrice())
                 .rating(coach.getRating())
                 .reviewCount(coach.getReviewCount())
+                .location(coach.getLocation())
+                .teachingType(coach.getTeachingType())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public CoachResponse updateMyCoachProfile(Long currentUserId, UpdateCoachRequest request) {
+        CoachProfile coach = coachRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Coach profile not found"));
+        return updateCoach(coach.getId(), request);
+    }
+
+    @Override
+    @Transactional
+    public ScheduleResponse updateSchedule(Long currentUserId, Long scheduleId, CreateScheduleRequest request) {
+        CoachSchedule schedule = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Schedule not found"));
+        ensureScheduleOwnerOrAdmin(currentUserId, schedule);
+        ensureFutureSchedule(request);
+
+        if (hasActiveBooking(schedule)) {
+            throw new BadRequestException("Cannot update schedule with pending or confirmed bookings");
+        }
+
+        if (request.getStartDate() != null) {
+            schedule.setStartDate(request.getStartDate());
+        }
+        if (request.getEndDate() != null) {
+            schedule.setEndDate(request.getEndDate());
+        }
+        if (request.getDayOfWeek() != null) {
+            schedule.setDayOfWeek(DayOfWeek.valueOf(request.getDayOfWeek()));
+        }
+        if (request.getStartTime() != null) {
+            schedule.setStartTime(request.getStartTime());
+        }
+        if (request.getEndTime() != null) {
+            schedule.setEndTime(request.getEndTime());
+        }
+
+        scheduleRepository.save(schedule);
+        return mapScheduleResponse(schedule);
+    }
+
+    @Override
+    @Transactional
+    public void deleteSchedule(Long currentUserId, Long scheduleId) {
+        CoachSchedule schedule = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Schedule not found"));
+        ensureScheduleOwnerOrAdmin(currentUserId, schedule);
+
+        if (hasActiveBooking(schedule)) {
+            throw new BadRequestException("Cannot delete schedule with pending or confirmed bookings");
+        }
+
+        scheduleRepository.delete(schedule);
+    }
+
+    private void ensureScheduleOwnerOrAdmin(Long currentUserId, CoachSchedule schedule) {
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!schedule.getCoach().getUser().getId().equals(currentUserId)
+                && currentUser.getRole() != UserRole.ADMIN) {
+            throw new UnauthorizedException("You cannot manage this schedule");
+        }
+    }
+
+    private void ensureCoachOwnerOrAdmin(CoachProfile coach) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!coach.getUser().getId().equals(currentUser.getId()) && currentUser.getRole() != UserRole.ADMIN) {
+            throw new UnauthorizedException("You cannot update this coach profile");
+        }
+    }
+
+    private boolean hasActiveBooking(CoachSchedule schedule) {
+        return !bookingRepository.findOverlappingBookings(
+                schedule.getCoach().getId(),
+                schedule.getDayOfWeek(),
+                schedule.getStartTime(),
+                schedule.getEndTime(),
+                schedule.getStartDate(),
+                schedule.getEndDate(),
+                List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED)
+        ).isEmpty();
+    }
+
+    private ScheduleResponse mapScheduleResponse(CoachSchedule schedule) {
+        return ScheduleResponse.builder()
+                .id(schedule.getId())
+                .dayOfWeek(schedule.getDayOfWeek().name())
+                .startTime(schedule.getStartTime().toString())
+                .endTime(schedule.getEndTime().toString())
+                .build();
+    }
+
+    private CoachResponse mapCoachResponse(CoachProfile coach) {
+        return CoachResponse.builder()
+                .id(coach.getId())
+                .fullName(coach.getUser().getFullName())
+                .avatar(coach.getAvatarUrl())
+                .category(coach.getCategory() == null ? null : coach.getCategory().getName())
+                .price(coach.getPrice())
+                .rating(coach.getRating())
+                .reviewCount(coach.getReviewCount())
+                .bio(coach.getBio())
                 .location(coach.getLocation())
                 .teachingType(coach.getTeachingType())
                 .build();

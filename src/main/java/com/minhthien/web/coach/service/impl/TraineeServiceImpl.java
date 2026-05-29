@@ -7,6 +7,9 @@ import com.minhthien.web.coach.dto.response.TraineeResponse;
 import com.minhthien.web.coach.entity.CoachProfile;
 import com.minhthien.web.coach.entity.TraineeProfile;
 import com.minhthien.web.coach.entity.User;
+import com.minhthien.web.coach.enums.UserRole;
+import com.minhthien.web.coach.exception.ResourceNotFoundException;
+import com.minhthien.web.coach.exception.UnauthorizedException;
 import com.minhthien.web.coach.repository.BookingRepository;
 import com.minhthien.web.coach.repository.CoachRepository;
 import com.minhthien.web.coach.repository.TraineeProfileRepository;
@@ -68,10 +71,18 @@ public class TraineeServiceImpl implements TraineeService {
     }
 
     @Override
+    public TraineeResponse getMyTrainee(Long currentUserId) {
+        TraineeProfile trainee = traineeProfileRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trainee profile not found"));
+        return mapTraineeResponse(trainee);
+    }
+
+    @Override
     public TraineeResponse updateTrainee(Long id, UpdateTraineeRequest request) {
         TraineeProfile trainee = traineeProfileRepository
                 .findById(id)
                 .orElseThrow(() -> new RuntimeException("Trainee not found"));
+        ensureTraineeOwnerOrAdmin(trainee);
 
         if (request.getGoal() != null) {
             trainee.setGoal(request.getGoal());
@@ -115,10 +126,18 @@ public class TraineeServiceImpl implements TraineeService {
     }
 
     @Override
+    public TraineeResponse updateMyTrainee(Long currentUserId, UpdateTraineeRequest request) {
+        TraineeProfile trainee = traineeProfileRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trainee profile not found"));
+        return updateTrainee(trainee.getId(), request);
+    }
+
+    @Override
     public void deleteTrainee(Long id) {
         TraineeProfile trainee = traineeProfileRepository
                 .findById(id)
                 .orElseThrow(() -> new RuntimeException("Trainee not found"));
+        ensureTraineeOwnerOrAdmin(trainee);
 
         traineeProfileRepository.delete(trainee);
     }
@@ -156,5 +175,30 @@ public class TraineeServiceImpl implements TraineeService {
                 .toList();
     }
 
+    private TraineeResponse mapTraineeResponse(TraineeProfile trainee) {
+        return TraineeResponse.builder()
+                .id(trainee.getId())
+                .fullName(trainee.getUser().getFullName())
+                .avatar(trainee.getAvatar())
+                .goal(trainee.getGoal())
+                .age(trainee.getAge())
+                .weight(trainee.getWeight())
+                .height(trainee.getHeight())
+                .phone(trainee.getPhone())
+                .build();
+    }
+
+    private void ensureTraineeOwnerOrAdmin(TraineeProfile trainee) {
+        String username = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!trainee.getUser().getId().equals(currentUser.getId()) && currentUser.getRole() != UserRole.ADMIN) {
+            throw new UnauthorizedException("You cannot manage this trainee profile");
+        }
+    }
 
 }

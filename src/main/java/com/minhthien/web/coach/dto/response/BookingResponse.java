@@ -20,7 +20,11 @@ public class BookingResponse {
 
     private String coachName;
 
+    private String coachAvatar;
+
     private String traineeName;
+
+    private String traineeAvatar;
 
     private LocalDate startDate;
 
@@ -49,4 +53,10 @@ public class BookingResponse {
     private Long adminCommissionAmount;
 
     private Long coachPayoutAmount;
+
+    private String cancellationReason;
+
+    private String cancelledBy;
+
+    private LocalDateTime cancelledAt;
 }

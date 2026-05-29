@@ -23,6 +23,8 @@ public class CoachScheduleResponse {
 
     private String endTime;
 
+    private Boolean available;
+
     private String status;
 
     private Long bookingId;

@@ -29,7 +29,7 @@ public class ImageServiceImpl implements ImageService {
                     file.getBytes(),
                     ObjectUtils.asMap(
                             "folder", "tailent",
-                            "resource_type", "auto"
+                            "resource_type", "image"
                     )
             );
 

@@ -170,4 +170,43 @@ AND b.status = 'COMPLETED'
     double sumWeekRevenue(Long coachId, LocalDate startOfWeek, LocalDate endOfWeek);
 
     long countByCoachIdAndStatus(Long coachId, BookingStatus status);
+
+    long countByTraineeId(Long traineeId);
+
+    @Query("""
+    SELECT COUNT(DISTINCT b.coach.id)
+    FROM Booking b
+    WHERE b.trainee.id = :traineeId
+    """)
+    long countDistinctCoachesByTraineeId(Long traineeId);
+
+    @Query("""
+    SELECT COALESCE(SUM(b.settledAmount), 0)
+    FROM Booking b
+    WHERE b.trainee.id = :traineeId
+    AND b.paymentSettled = true
+    """)
+    Long sumSettledAmountByTraineeId(Long traineeId);
+
+    @Query("""
+    SELECT COUNT(b)
+    FROM Booking b
+    WHERE b.coach.user.id = :coachUserId
+    """)
+    Long countByCoachUserId(Long coachUserId);
+
+    @Query("""
+    SELECT COUNT(DISTINCT b.trainee.id)
+    FROM Booking b
+    WHERE b.coach.user.id = :coachUserId
+    """)
+    Long countStudentsByCoachUserId(Long coachUserId);
+
+    @Query("""
+    SELECT COALESCE(SUM(b.coachPayoutAmount), 0)
+    FROM Booking b
+    WHERE b.coach.user.id = :coachUserId
+    AND b.paymentSettled = true
+    """)
+    Long sumCoachPayoutByCoachUserId(Long coachUserId);
 }

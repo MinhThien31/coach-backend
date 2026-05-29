@@ -2,9 +2,11 @@ package com.minhthien.web.coach.service.impl;
 
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.Booking;
+import com.minhthien.web.coach.entity.CoachProfile;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.enums.BookingStatus;
 import com.minhthien.web.coach.repository.BookingRepository;
+import com.minhthien.web.coach.repository.CoachRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.CalendarService;
 import com.minhthien.web.coach.service.UserService;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -21,6 +24,7 @@ import java.util.*;
 public class CalendarServiceImpl implements CalendarService {
 
     private final BookingRepository bookingRepository;
+    private final CoachRepository coachRepository;
     private final UserRepository userRepository;
     private final UserService userService;
 
@@ -157,6 +161,7 @@ public class CalendarServiceImpl implements CalendarService {
         LocalDate today = LocalDate.now();
 
         return bookings.stream()
+                .filter(this::isVisibleBooking)
 
                 .filter(b -> {
 
@@ -181,6 +186,9 @@ public class CalendarServiceImpl implements CalendarService {
                 .map(b -> BookingListResponse.builder()
                         .id(b.getId())
                         .coachName(b.getCoach().getUser().getFullName())
+                        .coachAvatar(b.getCoach().getAvatarUrl())
+                        .traineeName(b.getTrainee().getFullName())
+                        .traineeAvatar(b.getTrainee().getAvatarUrl())
                         .sport("Training")
                         .date(b.getStartDate())
                         .startTime(b.getStartTime())
@@ -188,6 +196,9 @@ public class CalendarServiceImpl implements CalendarService {
                         .type(b.getType())
                         .price(b.getPrice())
                         .status(b.getStatus())
+                        .cancellationReason(b.getCancellationReason())
+                        .cancelledBy(b.getCancelledBy())
+                        .cancelledAt(b.getCancelledAt())
                         .build())
 
                 .sorted((a, b) -> a.getDate().compareTo(b.getDate()))
@@ -203,9 +214,12 @@ public class CalendarServiceImpl implements CalendarService {
                 .getAuthentication()
                 .getName();
 
-        User coach = userRepository
+        User currentUser = userRepository
                 .findByUsername(username)
                 .orElseThrow();
+
+        CoachProfile coach = coachRepository.findByUserId(currentUser.getId())
+                .orElseThrow(() -> new RuntimeException("Coach profile not found"));
 
         LocalDate endDate = startDate.plusDays(6);
 
@@ -249,14 +263,20 @@ public class CalendarServiceImpl implements CalendarService {
                 .getAuthentication()
                 .getName();
 
-        User coach = userRepository
+        User currentUser = userRepository
                 .findByUsername(username)
                 .orElseThrow();
+
+        CoachProfile coach = coachRepository.findByUserId(currentUser.getId())
+                .orElseThrow(() -> new RuntimeException("Coach profile not found"));
 
         LocalDate start = LocalDate.of(year, month, 1);
         LocalDate end = start.plusMonths(1).minusDays(1);
 
-        List<Booking> bookings = bookingRepository.findByCoachId(coach.getId());
+        List<Booking> bookings = bookingRepository.findByCoachId(coach.getId())
+                .stream()
+                .filter(this::isVisibleBooking)
+                .toList();
 
         List<CoachMonthResponse> result = new ArrayList<>();
 
@@ -300,9 +320,12 @@ public class CalendarServiceImpl implements CalendarService {
                 .getAuthentication()
                 .getName();
 
-        User coach = userRepository
+        User currentUser = userRepository
                 .findByUsername(username)
                 .orElseThrow();
+
+        CoachProfile coach = coachRepository.findByUserId(currentUser.getId())
+                .orElseThrow(() -> new RuntimeException("Coach profile not found"));
 
         List<Booking> bookings = bookingRepository.findByCoachId(coach.getId());
 
@@ -314,16 +337,27 @@ public class CalendarServiceImpl implements CalendarService {
                     BookingListResponse.builder()
                             .id(booking.getId())
                             .traineeName(booking.getTrainee().getFullName())
+                            .traineeAvatar(booking.getTrainee().getAvatarUrl())
+                            .coachName(booking.getCoach().getUser().getFullName())
+                            .coachAvatar(booking.getCoach().getAvatarUrl())
                             .date(booking.getStartDate())
                             .startTime(booking.getStartTime())
                             .endTime(booking.getEndTime())
                             .status(booking.getStatus())
                             .price(booking.getPrice())
+                            .type(booking.getType())
+                            .cancellationReason(booking.getCancellationReason())
+                            .cancelledBy(booking.getCancelledBy())
+                            .cancelledAt(booking.getCancelledAt())
                             .build()
             );
         }
 
         return result;
+    }
+
+    private boolean isVisibleBooking(Booking booking) {
+        return !LocalDateTime.of(booking.getStartDate(), booking.getEndTime()).isBefore(LocalDateTime.now());
     }
 
 

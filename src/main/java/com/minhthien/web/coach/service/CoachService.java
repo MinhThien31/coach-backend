@@ -18,7 +18,13 @@ public interface CoachService {
     List<CoachResponse> getFeaturedCoaches();
     List<CoachResponse> getTrendingCoaches();
     List<CoachScheduleResponse> getCoachSchedule(Long coachId, LocalDate startDate, LocalDate endDate);
+    List<CoachScheduleResponse> getAvailableSlots(Long coachId, LocalDate date);
+    List<CoachScheduleResponse> getScheduleWithAvailability(Long coachId);
+    CoachResponse getMyCoachProfile(Long currentUserId);
     CoachResponse createCoach(CreateCoachRequest request);
 
     CoachResponse updateCoach(Long id, UpdateCoachRequest request);
+    CoachResponse updateMyCoachProfile(Long currentUserId, UpdateCoachRequest request);
+    ScheduleResponse updateSchedule(Long currentUserId, Long scheduleId, CreateScheduleRequest request);
+    void deleteSchedule(Long currentUserId, Long scheduleId);
 }
