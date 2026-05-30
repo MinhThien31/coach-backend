@@ -376,6 +376,71 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     @Transactional
+    public void payForBookingUpfront(Booking booking) {
+        if (booking == null || booking.getTrainee() == null) {
+            throw new BadRequestException("Booking không hợp lệ");
+        }
+        if (Boolean.TRUE.equals(booking.getTraineePaidUpfront())) {
+            return;
+        }
+
+        long totalAmount = normalizeAmount(booking.getPrice());
+        if (totalAmount <= 0) {
+            booking.setTraineePaidUpfront(true);
+            return;
+        }
+
+        Wallet traineeWallet = getOrCreateWallet(booking.getTrainee());
+        if (traineeWallet.getBalance() < totalAmount) {
+            throw new BadRequestException("Số dư ví không đủ để đặt lịch");
+        }
+
+        String referenceId = String.valueOf(booking.getId());
+        applyTransaction(
+                traineeWallet,
+                -totalAmount,
+                WalletTransactionType.BOOKING_PAYMENT,
+                "Thanh toán trước buổi học với coach " + booking.getCoach().getUser().getFullName(),
+                "BOOKING",
+                referenceId
+        );
+        walletRepository.save(traineeWallet);
+        booking.setTraineePaidUpfront(true);
+    }
+
+    @Override
+    @Transactional
+    public void refundBookingPayment(Booking booking, String reason) {
+        if (booking == null || booking.getTrainee() == null) {
+            return;
+        }
+        if (!Boolean.TRUE.equals(booking.getTraineePaidUpfront())) {
+            return;
+        }
+
+        long totalAmount = normalizeAmount(booking.getPrice());
+        if (totalAmount <= 0) {
+            booking.setTraineePaidUpfront(false);
+            return;
+        }
+
+        Wallet traineeWallet = getOrCreateWallet(booking.getTrainee());
+        String referenceId = String.valueOf(booking.getId());
+
+        applyTransaction(
+                traineeWallet,
+                totalAmount,
+                WalletTransactionType.REFUND,
+                reason != null ? reason : "Hoàn tiền booking #" + booking.getId(),
+                "BOOKING",
+                referenceId
+        );
+        walletRepository.save(traineeWallet);
+        booking.setTraineePaidUpfront(false);
+    }
+
+    @Override
+    @Transactional
     public BookingSettlementResult settleBookingPayment(Booking booking) {
         if (booking == null) {
             throw new BadRequestException("Booking is required");
@@ -400,20 +465,11 @@ public class WalletServiceImpl implements WalletService {
         long adminCommission = Math.round(totalAmount * commissionRate / 100.0d);
         long coachPayout = totalAmount - adminCommission;
 
-        Wallet traineeWallet = getOrCreateWallet(booking.getTrainee());
         Wallet coachWallet = getOrCreateWallet(booking.getCoach().getUser());
         Wallet adminWallet = getOrCreateWallet(getAdminUser());
 
         String referenceId = String.valueOf(booking.getId());
 
-        applyTransaction(
-                traineeWallet,
-                -totalAmount,
-                WalletTransactionType.BOOKING_PAYMENT,
-                "Thanh toán buổi học với coach " + booking.getCoach().getUser().getFullName(),
-                "BOOKING",
-                referenceId
-        );
         applyTransaction(
                 adminWallet,
                 adminCommission,
@@ -431,9 +487,11 @@ public class WalletServiceImpl implements WalletService {
                 referenceId
         );
 
-        walletRepository.save(traineeWallet);
         walletRepository.save(adminWallet);
         walletRepository.save(coachWallet);
+
+        // Lấy số dư ví Trainee (Dù không thay đổi ở bước này)
+        Wallet traineeWallet = getOrCreateWallet(booking.getTrainee());
 
         return BookingSettlementResult.builder()
                 .chargedAmount(totalAmount)

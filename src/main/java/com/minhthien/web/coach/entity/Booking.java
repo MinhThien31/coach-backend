@@ -66,6 +66,9 @@ public class Booking {
     private String note;        // ghi chú cho coach
 
     @Builder.Default
+    private Boolean traineePaidUpfront = false;
+
+    @Builder.Default
     private Boolean paymentSettled = false;
 
     private Long settledAmount;

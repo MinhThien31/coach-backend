@@ -51,5 +51,9 @@ public interface WalletService {
     WalletPaymentResult processSubscriptionPurchase(User user, Long amount, String description, String referenceId,
                                                     SubscriptionPlanCode planCode, SubscriptionBillingCycle billingCycle);
 
+    void payForBookingUpfront(Booking booking);
+
+    void refundBookingPayment(Booking booking, String reason);
+
     BookingSettlementResult settleBookingPayment(Booking booking);
 }

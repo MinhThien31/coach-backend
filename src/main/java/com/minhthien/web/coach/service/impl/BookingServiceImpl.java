@@ -94,11 +94,17 @@ public class BookingServiceImpl implements BookingService {
                 .type(request.getType())
                 .note(request.getNote())
                 .status(BookingStatus.PENDING)
+                .traineePaidUpfront(false)
                 .paymentSettled(false)
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        bookingRepository.save(booking);
+        booking = bookingRepository.save(booking);
+        
+        // Trừ tiền ví học viên ngay khi đặt lịch
+        walletService.payForBookingUpfront(booking);
+        booking = bookingRepository.save(booking);
+
         return mapBookingResponse(booking);
     }
 
@@ -145,6 +151,7 @@ public class BookingServiceImpl implements BookingService {
         ensureStatus(booking, BookingStatus.PENDING, "Only pending booking can be rejected");
 
         booking.setStatus(BookingStatus.REJECTED);
+        walletService.refundBookingPayment(booking, "Hoàn tiền do HLV từ chối yêu cầu đặt lịch");
         bookingRepository.save(booking);
         return mapBookingResponse(booking);
     }
@@ -162,6 +169,7 @@ public class BookingServiceImpl implements BookingService {
 
         ensureCancellationAllowed(booking, reason);
         applyCancellation(booking, reason, "COACH");
+        walletService.refundBookingPayment(booking, "Hoàn tiền do HLV hủy lịch: " + reason);
         bookingRepository.save(booking);
         return mapBookingResponse(booking);
     }
@@ -204,6 +212,7 @@ public class BookingServiceImpl implements BookingService {
 
         ensureCancellationAllowed(booking, reason);
         applyCancellation(booking, reason, "TRAINEE");
+        walletService.refundBookingPayment(booking, "Hoàn tiền do học viên hủy lịch: " + reason);
         bookingRepository.save(booking);
     }
 
