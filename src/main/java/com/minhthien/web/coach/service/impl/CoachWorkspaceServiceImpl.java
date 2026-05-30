@@ -113,6 +113,7 @@ public class CoachWorkspaceServiceImpl implements CoachWorkspaceService {
     public List<CoachWorkspaceResponses.TopStudentResponse> getTopStudents(Long currentUserId) {
         CoachProfile coach = getCoach(currentUserId);
         return bookingRepository.findByCoachId(coach.getId()).stream()
+                .filter(b -> b.getStatus() == BookingStatus.COMPLETED)
                 .collect(Collectors.groupingBy(Booking::getTrainee))
                 .entrySet()
                 .stream()
@@ -150,7 +151,7 @@ public class CoachWorkspaceServiceImpl implements CoachWorkspaceService {
                 .confirmedBookings(countBookings(bookings, BookingStatus.CONFIRMED))
                 .completedBookings(countBookings(bookings, BookingStatus.COMPLETED))
                 .totalStudents(bookings.stream().map(b -> b.getTrainee().getId()).distinct().count())
-                .totalRevenue(bookings.stream().mapToLong(this::bookingAmount).sum())
+                .totalRevenue(bookings.stream().filter(b -> b.getStatus() == BookingStatus.COMPLETED).mapToLong(this::bookingAmount).sum())
                 .totalVideos(coachVideoRepository.countByCoachId(currentUserId))
                 .totalVideoViews(totalViews)
                 .averageRating(rating == null ? 0.0 : rating)
@@ -399,7 +400,7 @@ public class CoachWorkspaceServiceImpl implements CoachWorkspaceService {
                 .height(profile == null ? null : profile.getHeight())
                 .joinDate(profile == null ? null : profile.getJoinedDate())
                 .plan("Cơ bản") // Placeholder as we don't have a plan field in TraineeProfile
-                .revenue(bookings.stream().mapToLong(this::bookingAmount).sum())
+                .revenue(bookings.stream().filter(b -> b.getStatus() == BookingStatus.COMPLETED).mapToLong(this::bookingAmount).sum())
                 .build();
     }
 
