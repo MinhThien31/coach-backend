@@ -39,6 +39,17 @@ public class CoachVideoServiceImpl implements CoachVideoService {
             );
 
             String videoUrl = uploadResult.get("secure_url").toString();
+            
+            String thumbnailUrl = videoUrl;
+            if (videoUrl.lastIndexOf('.') > 0) {
+                thumbnailUrl = videoUrl.substring(0, videoUrl.lastIndexOf('.')) + ".jpg";
+            }
+
+            Object durationObj = uploadResult.get("duration");
+            Long duration = 0L;
+            if (durationObj instanceof Number) {
+                duration = Math.round(((Number) durationObj).doubleValue());
+            }
 
             double sizeGB = file.getSize() / (1024.0 * 1024 * 1024);
 
@@ -54,6 +65,8 @@ public class CoachVideoServiceImpl implements CoachVideoService {
             CoachVideo video = CoachVideo.builder()
                     .title(title)
                     .videoUrl(videoUrl)
+                    .thumbnailUrl(thumbnailUrl)
+                    .duration(duration)
                     .format(format)
                     .resolution(resolution)
                     .size(sizeGB)
