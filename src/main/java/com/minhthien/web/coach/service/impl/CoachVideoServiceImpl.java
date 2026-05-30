@@ -67,7 +67,8 @@ public class CoachVideoServiceImpl implements CoachVideoService {
             return coachVideoRepository.save(video);
 
         } catch (Exception e) {
-            throw new RuntimeException("Upload video failed");
+            e.printStackTrace();
+            throw new RuntimeException("Upload video failed: " + e.getMessage(), e);
         }
     }
 
