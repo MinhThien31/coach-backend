@@ -78,6 +78,11 @@ public class CoachWorkspaceResponses {
         private long sessions;
         private long completedSessions;
         private LocalDate lastSessionDate;
+        private Double weight;
+        private Double height;
+        private LocalDate joinDate;
+        private String plan;
+        private long revenue;
     }
 
     @Data

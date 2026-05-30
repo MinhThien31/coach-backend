@@ -395,6 +395,11 @@ public class CoachWorkspaceServiceImpl implements CoachWorkspaceService {
                 .sessions(bookings.size())
                 .completedSessions(countBookings(bookings, BookingStatus.COMPLETED))
                 .lastSessionDate(bookings.stream().map(Booking::getStartDate).max(LocalDate::compareTo).orElse(null))
+                .weight(profile == null ? null : profile.getWeight())
+                .height(profile == null ? null : profile.getHeight())
+                .joinDate(profile == null ? null : profile.getJoinedDate())
+                .plan("Cơ bản") // Placeholder as we don't have a plan field in TraineeProfile
+                .revenue(bookings.stream().mapToLong(this::bookingAmount).sum())
                 .build();
     }
 
