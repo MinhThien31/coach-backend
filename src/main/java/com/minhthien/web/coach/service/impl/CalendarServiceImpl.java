@@ -185,6 +185,7 @@ public class CalendarServiceImpl implements CalendarService {
 
                 .map(b -> BookingListResponse.builder()
                         .id(b.getId())
+                        .coachId(b.getCoach().getId())
                         .coachName(b.getCoach().getUser().getFullName())
                         .coachAvatar(b.getCoach().getAvatarUrl())
                         .traineeName(b.getTrainee().getFullName())

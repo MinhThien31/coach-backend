@@ -15,6 +15,8 @@ public class BookingListResponse {
 
     private Long id;
 
+    private Long coachId;
+
     private String coachName;
 
     private String coachAvatar;
