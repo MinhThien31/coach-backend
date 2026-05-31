@@ -60,6 +60,7 @@ public class TraineeServiceImpl implements TraineeService {
 
         return TraineeResponse.builder()
                 .id(trainee.getId())
+                .userId(user.getId())
                 .fullName(user.getFullName())
                 .avatar(avatarUrl)
                 .goal(trainee.getGoal())
@@ -115,6 +116,7 @@ public class TraineeServiceImpl implements TraineeService {
 
         return TraineeResponse.builder()
                 .id(trainee.getId())
+                .userId(trainee.getUser().getId())
                 .fullName(trainee.getUser().getFullName())
                 .avatar(trainee.getAvatar())
                 .goal(trainee.getGoal())
@@ -164,6 +166,7 @@ public class TraineeServiceImpl implements TraineeService {
         return trainees.stream()
                 .map(t -> TraineeResponse.builder()
                         .id(t.getId())
+                        .userId(t.getUser().getId())
                         .fullName(t.getUser().getFullName())
                         .avatar(t.getAvatar())
                         .goal(t.getGoal())
@@ -178,6 +181,7 @@ public class TraineeServiceImpl implements TraineeService {
     private TraineeResponse mapTraineeResponse(TraineeProfile trainee) {
         return TraineeResponse.builder()
                 .id(trainee.getId())
+                .userId(trainee.getUser().getId())
                 .fullName(trainee.getUser().getFullName())
                 .avatar(trainee.getAvatar())
                 .goal(trainee.getGoal())

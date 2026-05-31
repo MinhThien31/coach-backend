@@ -80,6 +80,7 @@ public class CoachServiceImpl implements CoachService {
         return coaches.map(coach ->
                 CoachResponse.builder()
                         .id(coach.getId())
+                        .userId(coach.getUser().getId())
                         .fullName(coach.getUser().getFullName())
                         .avatar(coach.getAvatarUrl())
                         .category(coach.getCategory().getName())
@@ -140,6 +141,7 @@ public class CoachServiceImpl implements CoachService {
 
         return CoachDetailResponse.builder()
                 .id(coach.getId())
+                .userId(coach.getUser().getId())
                 .fullName(coach.getUser().getFullName())
                 .avatar(coach.getAvatarUrl())
                 .category(coach.getCategory().getName())
@@ -265,6 +267,7 @@ public class CoachServiceImpl implements CoachService {
                 .stream()
                 .map(c -> CoachResponse.builder()
                         .id(c.getId())
+                        .userId(c.getUser().getId())
                         .fullName(c.getUser().getFullName())
                         .avatar(c.getAvatarUrl())
                         .category(c.getCategory().getName())
@@ -286,6 +289,7 @@ public class CoachServiceImpl implements CoachService {
                 .stream()
                 .map(c -> CoachResponse.builder()
                         .id(c.getId())
+                        .userId(c.getUser().getId())
                         .fullName(c.getUser().getFullName())
                         .avatar(c.getAvatarUrl())
                         .category(c.getCategory().getName())
@@ -473,6 +477,7 @@ public class CoachServiceImpl implements CoachService {
 
         return CoachResponse.builder()
                 .id(coach.getId())
+                .userId(user.getId())
                 .fullName(user.getFullName())
                 .avatar(avatarUrl)
                 .category(category.getName())
@@ -531,6 +536,7 @@ public class CoachServiceImpl implements CoachService {
 
         return CoachResponse.builder()
                 .id(coach.getId())
+                .userId(coach.getUser().getId())
                 .fullName(coach.getUser().getFullName())
                 .avatar(coach.getAvatarUrl())
                 .category(coach.getCategory().getName())
@@ -638,6 +644,7 @@ public class CoachServiceImpl implements CoachService {
     private CoachResponse mapCoachResponse(CoachProfile coach) {
         return CoachResponse.builder()
                 .id(coach.getId())
+                .userId(coach.getUser().getId())
                 .fullName(coach.getUser().getFullName())
                 .avatar(coach.getAvatarUrl())
                 .category(coach.getCategory() == null ? null : coach.getCategory().getName())

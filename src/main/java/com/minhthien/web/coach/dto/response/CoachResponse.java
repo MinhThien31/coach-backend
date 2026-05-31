@@ -12,6 +12,8 @@ public class CoachResponse {
 
     private Long id;
 
+    private Long userId;
+
     private String fullName;
 
     private String avatar;

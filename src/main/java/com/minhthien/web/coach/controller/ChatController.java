@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,6 +26,7 @@ import java.util.Map;
 public class ChatController {
 
     private final ChatService chatService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @PostMapping("/conversations")
     public ResponseEntity<ApiResponse<ConversationResponse>> createConversation(
@@ -61,6 +63,16 @@ public class ChatController {
             @Valid @RequestBody SendConversationMessageRequest request) {
 
         ChatMessageResponse response = chatService.sendMessage(currentUser.getId(), conversationId, request.getContent());
+        messagingTemplate.convertAndSendToUser(
+                response.getReceiverUsername(),
+                "/queue/messages",
+                ApiResponse.success("New message", response)
+        );
+        messagingTemplate.convertAndSendToUser(
+                response.getSenderUsername(),
+                "/queue/messages",
+                ApiResponse.success("Message sent", response)
+        );
         return ResponseEntity.ok(ApiResponse.success("Message sent", response));
     }
 
