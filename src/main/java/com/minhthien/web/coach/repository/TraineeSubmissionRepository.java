@@ -12,6 +12,7 @@ public interface TraineeSubmissionRepository
     List<TraineeSubmission> findByCoachId(Long coachId);
 
     List<TraineeSubmission> findByTraineeId(Long traineeId);
+    List<TraineeSubmission> findByTraineeIdOrderBySubmittedAtDesc(Long traineeId);
     List<TraineeSubmission> findByCoachVideoId(Long coachVideoId);
     long countByCoachId(Long coachId);
 

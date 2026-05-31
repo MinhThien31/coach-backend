@@ -70,6 +70,10 @@ public class VideoApiResponses {
         private String videoUrl;
         private String note;
         private SubmissionStatus status;
+        private Integer postureScore;
+        private Integer techniqueScore;
+        private Integer rhythmScore;
+        private Integer strengthScore;
         private Double totalScore;
         private String feedback;
         private LocalDateTime submittedAt;

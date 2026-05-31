@@ -3,6 +3,8 @@ package com.minhthien.web.coach.dto.request;
 import com.minhthien.web.coach.enums.VideoType;
 import lombok.Data;
 
+import java.util.List;
+
 public class VideoApiRequests {
 
     @Data
@@ -19,5 +21,15 @@ public class VideoApiRequests {
         private Long categoryId;
         private VideoType videoType;
         private String tags;
+    }
+
+    @Data
+    public static class ReviewSubmissionRequest {
+        private Integer postureScore;
+        private Integer techniqueScore;
+        private Integer rhythmScore;
+        private Integer strengthScore;
+        private String feedback;
+        private List<CommentRequest> comments;
     }
 }

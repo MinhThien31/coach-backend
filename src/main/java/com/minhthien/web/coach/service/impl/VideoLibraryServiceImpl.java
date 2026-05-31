@@ -1,8 +1,11 @@
 package com.minhthien.web.coach.service.impl;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.minhthien.web.coach.dto.request.VideoApiRequests;
 import com.minhthien.web.coach.dto.response.VideoApiResponses;
 import com.minhthien.web.coach.dto.response.VideoCoachDashboardResponse;
+import com.minhthien.web.coach.entity.Booking;
 import com.minhthien.web.coach.entity.Category;
 import com.minhthien.web.coach.entity.CoachVideo;
 import com.minhthien.web.coach.entity.CoachVideoLike;
@@ -18,14 +21,18 @@ import com.minhthien.web.coach.repository.CategoryRepository;
 import com.minhthien.web.coach.repository.CoachVideoLikeRepository;
 import com.minhthien.web.coach.repository.CoachVideoRepository;
 import com.minhthien.web.coach.repository.CoachVideoSaveRepository;
+import com.minhthien.web.coach.repository.BookingRepository;
 import com.minhthien.web.coach.repository.TraineeSubmissionRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.VideoLibraryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -38,6 +45,8 @@ public class VideoLibraryServiceImpl implements VideoLibraryService {
     private final TraineeSubmissionRepository submissionRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final BookingRepository bookingRepository;
+    private final Cloudinary cloudinary;
 
     @Override
     @Transactional(readOnly = true)
@@ -195,6 +204,84 @@ public class VideoLibraryServiceImpl implements VideoLibraryService {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<VideoApiResponses.SubmissionResponse> getMySubmissions(Long currentUserId) {
+        return submissionRepository.findByTraineeIdOrderBySubmittedAtDesc(currentUserId)
+                .stream()
+                .map(this::mapSubmission)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public VideoApiResponses.SubmissionResponse submitVideoForReview(Long currentUserId, Long videoId, String note, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Submission video file is required");
+        }
+        CoachVideo coachVideo = getVideoEntity(videoId);
+        if (!isPublicVideo(coachVideo) && !isOwner(coachVideo, currentUserId)) {
+            throw new UnauthorizedException("You cannot submit to this video");
+        }
+        User trainee = getUser(currentUserId);
+        User coach = coachVideo.getCoach();
+        if (coach == null) {
+            throw new BadRequestException("Video does not have a coach owner");
+        }
+
+        try {
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "video"));
+            String videoUrl = uploadResult.get("secure_url").toString();
+            Booking booking = bookingRepository.findLatestByTraineeIdAndCoachUserId(currentUserId, coach.getId())
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+
+            TraineeSubmission saved = submissionRepository.save(TraineeSubmission.builder()
+                    .coachVideo(coachVideo)
+                    .videoUrl(videoUrl)
+                    .note(note)
+                    .submittedAt(LocalDateTime.now())
+                    .trainee(trainee)
+                    .coach(coach)
+                    .booking(booking)
+                    .status(SubmissionStatus.PENDING)
+                    .build());
+            return mapSubmission(saved);
+        } catch (Exception e) {
+            throw new BadRequestException("Upload video failed");
+        }
+    }
+
+    @Override
+    @Transactional
+    public VideoApiResponses.SubmissionResponse reviewSubmission(Long currentUserId, Long submissionId, VideoApiRequests.ReviewSubmissionRequest request) {
+        TraineeSubmission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+        if (submission.getCoach() == null || !submission.getCoach().getId().equals(currentUserId)) {
+            throw new UnauthorizedException("You cannot review this submission");
+        }
+
+        submission.setPostureScore(request.getPostureScore());
+        submission.setTechniqueScore(request.getTechniqueScore());
+        submission.setRhythmScore(request.getRhythmScore());
+        submission.setStrengthScore(request.getStrengthScore());
+        double total = java.util.stream.Stream.of(
+                        request.getPostureScore(),
+                        request.getTechniqueScore(),
+                        request.getRhythmScore(),
+                        request.getStrengthScore()
+                )
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .average()
+                .orElse(0.0);
+        submission.setTotalScore(total);
+        submission.setFeedback(request.getFeedback());
+        submission.setStatus(total >= 6.5 ? SubmissionStatus.PASSED : SubmissionStatus.FAILED);
+        return mapSubmission(submissionRepository.save(submission));
+    }
+
     private CoachVideo getVideoEntity(Long id) {
         return coachVideoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Video", "id", id));
@@ -266,6 +353,10 @@ public class VideoLibraryServiceImpl implements VideoLibraryService {
                 .videoUrl(submission.getVideoUrl())
                 .note(submission.getNote())
                 .status(submission.getStatus())
+                .postureScore(submission.getPostureScore())
+                .techniqueScore(submission.getTechniqueScore())
+                .rhythmScore(submission.getRhythmScore())
+                .strengthScore(submission.getStrengthScore())
                 .totalScore(submission.getTotalScore())
                 .feedback(submission.getFeedback())
                 .submittedAt(submission.getSubmittedAt())

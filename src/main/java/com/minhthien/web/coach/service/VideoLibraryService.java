@@ -5,6 +5,7 @@ import com.minhthien.web.coach.dto.response.VideoApiResponses;
 import com.minhthien.web.coach.dto.response.VideoCoachDashboardResponse;
 import com.minhthien.web.coach.enums.SubmissionStatus;
 import com.minhthien.web.coach.enums.VideoType;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -22,4 +23,7 @@ public interface VideoLibraryService {
     VideoCoachDashboardResponse getCoachVideoDashboard(Long currentUserId);
     VideoApiResponses.VideoAnalyticsResponse getCoachVideoAnalytics(Long currentUserId, Long id);
     List<VideoApiResponses.SubmissionResponse> getCoachSubmissions(Long currentUserId, SubmissionStatus status);
+    List<VideoApiResponses.SubmissionResponse> getMySubmissions(Long currentUserId);
+    VideoApiResponses.SubmissionResponse submitVideoForReview(Long currentUserId, Long videoId, String note, MultipartFile file);
+    VideoApiResponses.SubmissionResponse reviewSubmission(Long currentUserId, Long submissionId, VideoApiRequests.ReviewSubmissionRequest request);
 }

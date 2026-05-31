@@ -209,4 +209,14 @@ AND b.status = 'COMPLETED'
     AND b.paymentSettled = true
     """)
     Long sumCoachPayoutByCoachUserId(Long coachUserId);
+
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
+    @Query("""
+    SELECT b
+    FROM Booking b
+    WHERE b.trainee.id = :traineeId
+    AND b.coach.user.id = :coachUserId
+    ORDER BY b.startDate DESC, b.createdAt DESC
+    """)
+    List<Booking> findLatestByTraineeIdAndCoachUserId(Long traineeId, Long coachUserId);
 }

@@ -3,6 +3,7 @@ package com.minhthien.web.coach.service.impl;
 import com.minhthien.web.coach.dto.request.ProgressApiRequests;
 import com.minhthien.web.coach.dto.response.ProgressApiResponses;
 import com.minhthien.web.coach.entity.Booking;
+import com.minhthien.web.coach.entity.TraineeSubmission;
 import com.minhthien.web.coach.entity.TraineeBodyMetric;
 import com.minhthien.web.coach.entity.TraineeExerciseProgress;
 import com.minhthien.web.coach.entity.User;
@@ -11,6 +12,7 @@ import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.repository.BookingRepository;
 import com.minhthien.web.coach.repository.TraineeBodyMetricRepository;
 import com.minhthien.web.coach.repository.TraineeExerciseProgressRepository;
+import com.minhthien.web.coach.repository.TraineeSubmissionRepository;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.service.ProgressService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,7 @@ public class ProgressServiceImpl implements ProgressService {
     private final BookingRepository bookingRepository;
     private final TraineeBodyMetricRepository bodyMetricRepository;
     private final TraineeExerciseProgressRepository exerciseProgressRepository;
+    private final TraineeSubmissionRepository submissionRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -36,7 +40,13 @@ public class ProgressServiceImpl implements ProgressService {
         long totalSessions = bookingRepository.countByTraineeId(traineeUserId);
         long activeCoaches = bookingRepository.countDistinctCoachesByTraineeId(traineeUserId);
         int streakDays = calculateStreak(traineeUserId);
-        int averageAiScore = totalSessions == 0 ? 0 : Math.min(100, 70 + (int) Math.min(20, totalSessions));
+        List<TraineeSubmission> scoredSubmissions = submissionRepository.findByTraineeId(traineeUserId)
+                .stream()
+                .filter(submission -> submission.getTotalScore() != null)
+                .toList();
+        int averageAiScore = scoredSubmissions.isEmpty()
+                ? 0
+                : (int) Math.round(scoredSubmissions.stream().mapToDouble(TraineeSubmission::getTotalScore).average().orElse(0.0) * 10);
 
         return ProgressApiResponses.ProgressOverviewResponse.builder()
                 .totalSessions(totalSessions)
@@ -154,6 +164,12 @@ public class ProgressServiceImpl implements ProgressService {
                 .forEach(metric -> addActivity(values, metric.getMeasuredAt()));
         exerciseProgressRepository.findByTraineeIdAndMeasuredAtBetweenOrderByMeasuredAtAsc(traineeUserId, start, end)
                 .forEach(progress -> addActivity(values, progress.getMeasuredAt()));
+        submissionRepository.findByTraineeId(traineeUserId).stream()
+                .map(TraineeSubmission::getSubmittedAt)
+                .filter(Objects::nonNull)
+                .map(LocalDateTime::toLocalDate)
+                .filter(date -> !date.isBefore(start) && !date.isAfter(end))
+                .forEach(date -> addActivity(values, date));
 
         List<ProgressApiResponses.HeatmapPointResponse> heatmap = new ArrayList<>();
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
@@ -176,6 +192,11 @@ public class ProgressServiceImpl implements ProgressService {
                 .forEach(activeDates::add);
         exerciseProgressRepository.findByTraineeIdOrderByMeasuredAtAsc(traineeUserId).stream()
                 .map(TraineeExerciseProgress::getMeasuredAt)
+                .forEach(activeDates::add);
+        submissionRepository.findByTraineeId(traineeUserId).stream()
+                .map(TraineeSubmission::getSubmittedAt)
+                .filter(Objects::nonNull)
+                .map(LocalDateTime::toLocalDate)
                 .forEach(activeDates::add);
 
         if (activeDates.isEmpty()) {

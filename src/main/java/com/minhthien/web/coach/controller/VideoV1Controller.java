@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -106,5 +107,29 @@ public class VideoV1Controller {
     @GetMapping("/api/v1/coach/submissions/pending")
     public ApiResponse<List<VideoApiResponses.SubmissionResponse>> getPendingCoachSubmissions(@AuthenticationPrincipal User currentUser) {
         return ApiResponse.success(videoLibraryService.getCoachSubmissions(currentUser.getId(), SubmissionStatus.PENDING));
+    }
+
+    @GetMapping("/api/v1/videos/submissions/my")
+    public ApiResponse<List<VideoApiResponses.SubmissionResponse>> getMyVideoSubmissions(@AuthenticationPrincipal User currentUser) {
+        return ApiResponse.success(videoLibraryService.getMySubmissions(currentUser.getId()));
+    }
+
+    @PostMapping(value = "/api/v1/videos/{id}/submissions", consumes = "multipart/form-data")
+    public ApiResponse<VideoApiResponses.SubmissionResponse> submitVideoForReview(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long id,
+            @RequestParam(required = false) String note,
+            @RequestParam MultipartFile file
+    ) {
+        return ApiResponse.success(videoLibraryService.submitVideoForReview(currentUser.getId(), id, note, file));
+    }
+
+    @PutMapping("/api/v1/coach/submissions/{submissionId}/review")
+    public ApiResponse<VideoApiResponses.SubmissionResponse> reviewSubmission(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long submissionId,
+            @RequestBody VideoApiRequests.ReviewSubmissionRequest request
+    ) {
+        return ApiResponse.success(videoLibraryService.reviewSubmission(currentUser.getId(), submissionId, request));
     }
 }
