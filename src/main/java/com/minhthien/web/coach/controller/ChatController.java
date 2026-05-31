@@ -5,7 +5,10 @@ import com.minhthien.web.coach.dto.request.SendConversationMessageRequest;
 import com.minhthien.web.coach.dto.response.ApiResponse;
 import com.minhthien.web.coach.dto.response.ChatMessageResponse;
 import com.minhthien.web.coach.dto.response.ConversationResponse;
+import com.minhthien.web.coach.exception.BadRequestException;
+import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.entity.User;
+import com.minhthien.web.coach.repository.CoachRepository;
 import com.minhthien.web.coach.service.ChatService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -27,13 +30,25 @@ public class ChatController {
 
     private final ChatService chatService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final CoachRepository coachRepository;
 
     @PostMapping("/conversations")
     public ResponseEntity<ApiResponse<ConversationResponse>> createConversation(
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody CreateConversationRequest request) {
 
-        ConversationResponse response = chatService.createOrGetConversation(currentUser.getId(), request.getParticipantId());
+        Long participantId = request.getParticipantId();
+        if (participantId == null && request.getCoachProfileId() != null) {
+            participantId = coachRepository.findById(request.getCoachProfileId())
+                    .orElseThrow(() -> new ResourceNotFoundException("CoachProfile", "id", request.getCoachProfileId()))
+                    .getUser()
+                    .getId();
+        }
+        if (participantId == null) {
+            throw new BadRequestException("participantId or coachProfileId is required");
+        }
+
+        ConversationResponse response = chatService.createOrGetConversation(currentUser.getId(), participantId);
         return ResponseEntity.ok(ApiResponse.success("Conversation ready", response));
     }
 
