@@ -15,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -49,11 +50,22 @@ public class PayOSGatewayServiceImpl implements PayOSGatewayService {
     private String cancelUrl;
 
     @Override
-    public PaymentLinkData createPaymentLink(Long orderCode, Long amount, String description, String buyerName, String buyerEmail, String buyerPhone) {
-        ensureConfigured();
+    public PaymentLinkData createPaymentLink(
+            Long orderCode,
+            Long amount,
+            String description,
+            String buyerName,
+            String buyerEmail,
+            String buyerPhone,
+            String requestedReturnUrl,
+            String requestedCancelUrl
+    ) {
+        String effectiveReturnUrl = resolveCallbackUrl(requestedReturnUrl, returnUrl, "returnUrl");
+        String effectiveCancelUrl = resolveCallbackUrl(requestedCancelUrl, cancelUrl, "cancelUrl");
+        ensureConfigured(effectiveReturnUrl, effectiveCancelUrl);
 
-        String finalReturnUrl = appendQueryParam(returnUrl, "orderCode", String.valueOf(orderCode));
-        String finalCancelUrl = appendQueryParam(cancelUrl, "orderCode", String.valueOf(orderCode));
+        String finalReturnUrl = appendQueryParam(effectiveReturnUrl, "orderCode", String.valueOf(orderCode));
+        String finalCancelUrl = appendQueryParam(effectiveCancelUrl, "orderCode", String.valueOf(orderCode));
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("orderCode", orderCode);
@@ -166,11 +178,33 @@ public class PayOSGatewayServiceImpl implements PayOSGatewayService {
     }
 
     private void ensureConfigured() {
+        ensureConfigured(returnUrl, cancelUrl);
+    }
+
+    private void ensureConfigured(String effectiveReturnUrl, String effectiveCancelUrl) {
         if (!StringUtils.hasText(clientId) || !StringUtils.hasText(apiKey) || !StringUtils.hasText(checksumKey)) {
             throw new BadRequestException("Thiếu cấu hình PayOS: payos.client-id, payos.api-key hoặc payos.checksum-key");
         }
-        if (!StringUtils.hasText(returnUrl) || !StringUtils.hasText(cancelUrl)) {
+        if (!StringUtils.hasText(effectiveReturnUrl) || !StringUtils.hasText(effectiveCancelUrl)) {
             throw new BadRequestException("Thiếu cấu hình PayOS return/cancel url");
+        }
+    }
+
+    private String resolveCallbackUrl(String requestedUrl, String fallbackUrl, String fieldName) {
+        String url = StringUtils.hasText(requestedUrl) ? requestedUrl.trim() : fallbackUrl;
+        if (!StringUtils.hasText(url)) {
+            return url;
+        }
+        try {
+            URI uri = URI.create(url);
+            String scheme = uri.getScheme();
+            if (!StringUtils.hasText(scheme) || uri.getHost() == null
+                    || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+                throw new IllegalArgumentException();
+            }
+            return url;
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("PayOS " + fieldName + " không hợp lệ");
         }
     }
 

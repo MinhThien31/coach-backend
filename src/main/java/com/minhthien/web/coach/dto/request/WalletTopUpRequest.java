@@ -16,4 +16,8 @@ public class WalletTopUpRequest {
     @NotNull(message = "Top up amount is required")
     @Min(value = 1000, message = "Top up amount must be at least 1000")
     private Long amount;
+
+    private String returnUrl;
+
+    private String cancelUrl;
 }

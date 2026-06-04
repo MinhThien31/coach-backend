@@ -4,7 +4,16 @@ import java.util.Map;
 
 public interface PayOSGatewayService {
 
-    PaymentLinkData createPaymentLink(Long orderCode, Long amount, String description, String buyerName, String buyerEmail, String buyerPhone);
+    PaymentLinkData createPaymentLink(
+            Long orderCode,
+            Long amount,
+            String description,
+            String buyerName,
+            String buyerEmail,
+            String buyerPhone,
+            String returnUrl,
+            String cancelUrl
+    );
 
     PaymentRequestStatusData getPaymentRequestStatus(Long orderCode);
 

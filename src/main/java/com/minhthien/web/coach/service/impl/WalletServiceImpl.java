@@ -82,7 +82,9 @@ public class WalletServiceImpl implements WalletService {
                     description,
                     user.getFullName(),
                     user.getEmail(),
-                    user.getPhone()
+                    user.getPhone(),
+                    request.getReturnUrl(),
+                    request.getCancelUrl()
             );
 
             order.setPaymentLinkId(paymentLink.paymentLinkId());
