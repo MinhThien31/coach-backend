@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, Long>, JpaSpecificationExecutor<WalletTransaction> {
     List<WalletTransaction> findTop50ByWalletIdOrderByCreatedAtDesc(Long walletId);
+    List<WalletTransaction> findByWalletIdOrderByCreatedAtDesc(Long walletId);
     List<WalletTransaction> findTop100ByWalletIdAndTypeOrderByCreatedAtDesc(Long walletId, WalletTransactionType type);
     long countByWalletId(Long walletId);
     List<WalletTransaction> findTop100ByTypeOrderByCreatedAtDesc(WalletTransactionType type);

@@ -10,7 +10,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "wallet_top_up_orders")
+@Table(
+        name = "wallet_top_up_orders",
+        indexes = {
+                @Index(name = "idx_topup_user_created", columnList = "user_id,created_at"),
+                @Index(name = "idx_topup_status_created", columnList = "status,created_at")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor
@@ -66,11 +72,11 @@ public class WalletTopUpOrder {
     private LocalDateTime paidAt;
 
     @Builder.Default
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Builder.Default
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     @PrePersist

@@ -13,12 +13,16 @@ import com.minhthien.web.coach.dto.response.WalletResponse;
 import com.minhthien.web.coach.dto.response.WalletTopUpResponse;
 import com.minhthien.web.coach.dto.response.WalletWithdrawResponse;
 import com.minhthien.web.coach.dto.response.WalletTransactionResponse;
+import com.minhthien.web.coach.dto.response.WalletHistoryItemResponse;
 import com.minhthien.web.coach.entity.Booking;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
 import com.minhthien.web.coach.enums.SubscriptionPlanCode;
 import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
+import com.minhthien.web.coach.enums.WalletTransactionType;
+import org.springframework.data.domain.Page;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -38,7 +42,15 @@ public interface WalletService {
 
     void handlePayOSWebhook(Map<String, Object> payload);
 
-    List<WalletTransactionResponse> getMyTransactions(Long currentUserId);
+    Page<WalletHistoryItemResponse> getMyTransactions(
+            Long currentUserId,
+            WalletTransactionType type,
+            String status,
+            LocalDate from,
+            LocalDate to,
+            int page,
+            int size
+    );
 
     AdminWalletOverviewResponse getAdminWalletOverview();
 

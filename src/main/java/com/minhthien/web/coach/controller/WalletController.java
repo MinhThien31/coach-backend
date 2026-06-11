@@ -7,15 +7,18 @@ import com.minhthien.web.coach.dto.request.WalletWithdrawalReviewRequest;
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
+import com.minhthien.web.coach.enums.WalletTransactionType;
 import com.minhthien.web.coach.exception.BadRequestException;
 import com.minhthien.web.coach.service.WalletService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.Page;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -39,13 +42,19 @@ public class WalletController {
     }
 
     @GetMapping("/api/v1/wallets/me/transactions")
-    public ResponseEntity<ApiResponse<List<WalletTransactionResponse>>> getMyTransactions(
-            @AuthenticationPrincipal User currentUser
+    public ResponseEntity<ApiResponse<Page<WalletHistoryItemResponse>>> getMyTransactions(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(required = false) WalletTransactionType type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Wallet transactions loaded successfully",
-                        walletService.getMyTransactions(currentUser.getId())
+                        walletService.getMyTransactions(currentUser.getId(), type, status, from, to, page, size)
                 )
         );
     }

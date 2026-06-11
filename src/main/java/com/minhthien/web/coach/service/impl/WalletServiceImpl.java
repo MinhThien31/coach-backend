@@ -23,9 +23,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -212,13 +219,47 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     @Transactional
-    public List<WalletTransactionResponse> getMyTransactions(Long currentUserId) {
+    public Page<WalletHistoryItemResponse> getMyTransactions(
+            Long currentUserId,
+            WalletTransactionType type,
+            String status,
+            LocalDate from,
+            LocalDate to,
+            int page,
+            int size
+    ) {
         User user = getUser(currentUserId);
         Wallet wallet = getOrCreateWallet(user);
-        return walletTransactionRepository.findTop50ByWalletIdOrderByCreatedAtDesc(wallet.getId())
-                .stream()
-                .map(this::mapTransaction)
+        List<WalletHistoryItemResponse> history = new ArrayList<>();
+
+        walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId()).stream()
+                .map(this::mapHistoryTransaction)
+                .forEach(history::add);
+        walletTopUpOrderRepository.findByUserIdOrderByCreatedAtDesc(user.getId()).stream()
+                .filter(order -> order.getStatus() != WalletTopUpOrderStatus.PAID)
+                .map(this::mapHistoryTopUpOrder)
+                .forEach(history::add);
+
+        String normalizedStatus = StringUtils.hasText(status)
+                ? status.trim().toUpperCase(Locale.ROOT)
+                : null;
+        List<WalletHistoryItemResponse> filtered = history.stream()
+                .filter(item -> type == null || item.getType() == type)
+                .filter(item -> normalizedStatus == null || normalizedStatus.equals(item.getStatus()))
+                .filter(item -> from == null || !item.getCreatedAt().isBefore(from.atStartOfDay()))
+                .filter(item -> to == null || item.getCreatedAt().isBefore(to.plusDays(1).atStartOfDay()))
+                .sorted(Comparator.comparing(WalletHistoryItemResponse::getCreatedAt).reversed())
                 .toList();
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int fromIndex = Math.min(safePage * safeSize, filtered.size());
+        int toIndex = Math.min(fromIndex + safeSize, filtered.size());
+        return new PageImpl<>(
+                filtered.subList(fromIndex, toIndex),
+                PageRequest.of(safePage, safeSize),
+                filtered.size()
+        );
     }
 
     @Override
@@ -717,6 +758,58 @@ public class WalletServiceImpl implements WalletService {
                 .processedAt(transaction.getProcessedAt())
                 .createdAt(transaction.getCreatedAt())
                 .build();
+    }
+
+    private WalletHistoryItemResponse mapHistoryTransaction(WalletTransaction transaction) {
+        return WalletHistoryItemResponse.builder()
+                .id("TRANSACTION-" + transaction.getId())
+                .source("WALLET_TRANSACTION")
+                .type(transaction.getType())
+                .amount(transaction.getAmount())
+                .balanceBefore(transaction.getBalanceBefore())
+                .balanceAfter(transaction.getBalanceAfter())
+                .status(resolveTransactionStatus(transaction))
+                .description(transaction.getDescription())
+                .referenceType(transaction.getReferenceType())
+                .referenceId(transaction.getReferenceId())
+                .subscriptionPlanCode(transaction.getSubscriptionPlanCode())
+                .subscriptionBillingCycle(transaction.getSubscriptionBillingCycle())
+                .bankCode(transaction.getBankCode())
+                .bankName(transaction.getBankName())
+                .bankAccountNumber(transaction.getBankAccountNumber())
+                .bankAccountHolderName(transaction.getBankAccountHolderName())
+                .bankBranch(transaction.getBankBranch())
+                .adminNote(transaction.getAdminNote())
+                .processedByUserId(transaction.getProcessedByUserId())
+                .processedByName(transaction.getProcessedByName())
+                .processedAt(transaction.getProcessedAt())
+                .createdAt(transaction.getCreatedAt())
+                .build();
+    }
+
+    private WalletHistoryItemResponse mapHistoryTopUpOrder(WalletTopUpOrder order) {
+        return WalletHistoryItemResponse.builder()
+                .id("TOP_UP_ORDER-" + order.getId())
+                .source("TOP_UP_ORDER")
+                .type(WalletTransactionType.TOP_UP)
+                .amount(order.getAmount())
+                .status(order.getStatus().name())
+                .description(order.getDescription())
+                .referenceType("TOP_UP")
+                .referenceId(String.valueOf(order.getOrderCode()))
+                .createdAt(order.getCreatedAt())
+                .build();
+    }
+
+    private String resolveTransactionStatus(WalletTransaction transaction) {
+        if (transaction.getType() != WalletTransactionType.WITHDRAWAL || transaction.getWithdrawalStatus() == null) {
+            return "SUCCESS";
+        }
+        return switch (transaction.getWithdrawalStatus()) {
+            case PROCESSING -> "PROCESSING";
+            case COMPLETED -> "SUCCESS";
+            case REJECTED -> "REJECTED";
+        };
     }
 
 

@@ -13,7 +13,14 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "wallet_transactions")
+@Table(
+        name = "wallet_transactions",
+        indexes = {
+                @Index(name = "idx_wallet_tx_wallet_created", columnList = "wallet_id,created_at"),
+                @Index(name = "idx_wallet_tx_type_created", columnList = "type,created_at"),
+                @Index(name = "idx_wallet_tx_withdraw_status", columnList = "withdrawal_status")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor
@@ -88,7 +95,7 @@ public class WalletTransaction {
     private LocalDateTime processedAt;
 
     @Builder.Default
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @PrePersist
