@@ -3,12 +3,14 @@ package com.minhthien.web.coach.controller;
 import com.minhthien.web.coach.dto.request.CreateConversationRequest;
 import com.minhthien.web.coach.dto.request.SendConversationMessageRequest;
 import com.minhthien.web.coach.dto.response.ApiResponse;
+import com.minhthien.web.coach.dto.response.CallSessionResponse;
 import com.minhthien.web.coach.dto.response.ChatMessageResponse;
 import com.minhthien.web.coach.dto.response.ConversationResponse;
 import com.minhthien.web.coach.exception.BadRequestException;
 import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.repository.CoachRepository;
+import com.minhthien.web.coach.service.CallSessionService;
 import com.minhthien.web.coach.service.ChatService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -29,6 +31,7 @@ import java.util.Map;
 public class ChatController {
 
     private final ChatService chatService;
+    private final CallSessionService callSessionService;
     private final SimpMessagingTemplate messagingTemplate;
     private final CoachRepository coachRepository;
 
@@ -68,6 +71,18 @@ public class ChatController {
 
         return ResponseEntity.ok(ApiResponse.success(
                 chatService.getConversationMessages(currentUser.getId(), conversationId, page, size)
+        ));
+    }
+
+    @GetMapping("/conversations/{conversationId}/calls")
+    public ResponseEntity<ApiResponse<Page<CallSessionResponse>>> getCalls(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long conversationId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                callSessionService.getConversationCalls(currentUser.getId(), conversationId, page, size)
         ));
     }
 

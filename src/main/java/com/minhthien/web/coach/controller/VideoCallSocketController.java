@@ -3,6 +3,7 @@ package com.minhthien.web.coach.controller;
 import com.minhthien.web.coach.dto.request.VideoCallSignalRequest;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.exception.UnauthorizedException;
+import com.minhthien.web.coach.service.CallSessionService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -15,9 +16,11 @@ import java.security.Principal;
 public class VideoCallSocketController {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final CallSessionService callSessionService;
 
-    public VideoCallSocketController(SimpMessagingTemplate messagingTemplate) {
+    public VideoCallSocketController(SimpMessagingTemplate messagingTemplate, CallSessionService callSessionService) {
         this.messagingTemplate = messagingTemplate;
+        this.callSessionService = callSessionService;
     }
 
     @MessageMapping("/call.signal")
@@ -26,13 +29,20 @@ public class VideoCallSocketController {
             throw new UnauthorizedException("WebSocket user is not authenticated");
         }
 
-        request.setSenderUsername(userDetails.getUsername());
-        
-        // Relay the WebRTC signaling message to the target user
+        VideoCallSignalRequest response = callSessionService.handleSignal(userDetails, request);
+
         messagingTemplate.convertAndSendToUser(
-                request.getTargetUsername(),
+                response.getTargetUsername(),
                 "/queue/call",
-                request
+                response
         );
+
+        if ("CALL_INVITE".equals(response.getType())) {
+            messagingTemplate.convertAndSendToUser(
+                    userDetails.getUsername(),
+                    "/queue/call",
+                    response
+            );
+        }
     }
 }
