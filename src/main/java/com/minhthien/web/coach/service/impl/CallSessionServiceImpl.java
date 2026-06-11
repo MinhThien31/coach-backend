@@ -52,7 +52,7 @@ public class CallSessionServiceImpl implements CallSessionService {
         CallSession session = getCallSessionForUser(request.getCallId(), currentUser.getId());
         validateTargetParticipant(session, target);
         request.setConversationId(session.getConversation().getId());
-        request.setCallType(session.getCallType().name());
+        request.setCallType(toSignalCallType(session.getCallType()));
 
         switch (type) {
             case "CALL_ACCEPT" -> accept(session);
@@ -97,7 +97,7 @@ public class CallSessionServiceImpl implements CallSessionService {
                 .build());
 
         request.setCallId(saved.getId());
-        request.setCallType(callType.name());
+        request.setCallType(toSignalCallType(callType));
         request.setConversationId(conversation.getId());
         return request;
     }
@@ -172,11 +172,22 @@ public class CallSessionServiceImpl implements CallSessionService {
         if (value == null || value.isBlank()) {
             throw new BadRequestException("callType is required");
         }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if ("video".equals(normalized) || "video-call".equals(normalized)) {
+            return CallType.VIDEO;
+        }
+        if ("audio".equals(normalized) || "voice".equals(normalized) || "audio-call".equals(normalized)) {
+            return CallType.AUDIO;
+        }
         try {
             return CallType.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("callType must be AUDIO or VIDEO");
+            throw new BadRequestException("callType must be audio or video");
         }
+    }
+
+    private String toSignalCallType(CallType callType) {
+        return callType == CallType.VIDEO ? "video" : "audio";
     }
 
     private String normalizeType(String type) {
