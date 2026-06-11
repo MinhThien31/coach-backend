@@ -6,6 +6,7 @@ import com.minhthien.web.coach.dto.request.WalletWithdrawRequest;
 import com.minhthien.web.coach.dto.request.WalletWithdrawalReviewRequest;
 import com.minhthien.web.coach.dto.response.AdminWalletOverviewResponse;
 import com.minhthien.web.coach.dto.response.AdminWalletWithdrawRequestResponse;
+import com.minhthien.web.coach.dto.response.AdminWalletHistoryItemResponse;
 import com.minhthien.web.coach.dto.response.BookingSettlementResult;
 import com.minhthien.web.coach.dto.response.WalletBankAccountResponse;
 import com.minhthien.web.coach.dto.response.WalletPaymentResult;
@@ -20,6 +21,7 @@ import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
 import com.minhthien.web.coach.enums.SubscriptionPlanCode;
 import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
 import com.minhthien.web.coach.enums.WalletTransactionType;
+import com.minhthien.web.coach.enums.UserRole;
 import org.springframework.data.domain.Page;
 
 import java.time.LocalDate;
@@ -53,6 +55,17 @@ public interface WalletService {
     );
 
     AdminWalletOverviewResponse getAdminWalletOverview();
+
+    Page<AdminWalletHistoryItemResponse> getAdminWalletTransactions(
+            String keyword,
+            UserRole role,
+            WalletTransactionType type,
+            String status,
+            LocalDate from,
+            LocalDate to,
+            int page,
+            int size
+    );
 
     List<AdminWalletWithdrawRequestResponse> getAdminWithdrawRequests(WalletWithdrawalStatus status);
 

@@ -279,6 +279,57 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<AdminWalletHistoryItemResponse> getAdminWalletTransactions(
+            String keyword,
+            UserRole role,
+            WalletTransactionType type,
+            String status,
+            LocalDate from,
+            LocalDate to,
+            int page,
+            int size
+    ) {
+        List<AdminWalletHistoryItemResponse> history = new ArrayList<>();
+
+        walletTransactionRepository.findAll().stream()
+                .filter(transaction -> transaction.getType() == WalletTransactionType.TOP_UP
+                        || transaction.getType() == WalletTransactionType.WITHDRAWAL)
+                .map(this::mapAdminWalletTransaction)
+                .forEach(history::add);
+        walletTopUpOrderRepository.findAll().stream()
+                .filter(order -> order.getStatus() != WalletTopUpOrderStatus.PAID)
+                .map(this::mapAdminTopUpOrder)
+                .forEach(history::add);
+
+        String normalizedKeyword = StringUtils.hasText(keyword)
+                ? keyword.trim().toLowerCase(Locale.ROOT)
+                : null;
+        String normalizedStatus = StringUtils.hasText(status)
+                ? status.trim().toUpperCase(Locale.ROOT)
+                : null;
+        List<AdminWalletHistoryItemResponse> filtered = history.stream()
+                .filter(item -> role == null || item.getRole() == role)
+                .filter(item -> type == null || item.getType() == type)
+                .filter(item -> normalizedStatus == null || normalizedStatus.equals(item.getStatus()))
+                .filter(item -> from == null || !item.getCreatedAt().isBefore(from.atStartOfDay()))
+                .filter(item -> to == null || item.getCreatedAt().isBefore(to.plusDays(1).atStartOfDay()))
+                .filter(item -> normalizedKeyword == null || matchesAdminWalletKeyword(item, normalizedKeyword))
+                .sorted(Comparator.comparing(AdminWalletHistoryItemResponse::getCreatedAt).reversed())
+                .toList();
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int fromIndex = Math.min(safePage * safeSize, filtered.size());
+        int toIndex = Math.min(fromIndex + safeSize, filtered.size());
+        return new PageImpl<>(
+                filtered.subList(fromIndex, toIndex),
+                PageRequest.of(safePage, safeSize),
+                filtered.size()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<AdminWalletWithdrawRequestResponse> getAdminWithdrawRequests(WalletWithdrawalStatus status) {
         List<WalletTransaction> transactions = status == null
                 ? walletTransactionRepository.findTop100ByTypeOrderByCreatedAtDesc(WalletTransactionType.WITHDRAWAL)
@@ -799,6 +850,73 @@ public class WalletServiceImpl implements WalletService {
                 .referenceId(String.valueOf(order.getOrderCode()))
                 .createdAt(order.getCreatedAt())
                 .build();
+    }
+
+    private AdminWalletHistoryItemResponse mapAdminWalletTransaction(WalletTransaction transaction) {
+        Wallet wallet = transaction.getWallet();
+        User owner = wallet.getUser();
+        return AdminWalletHistoryItemResponse.builder()
+                .id("TRANSACTION-" + transaction.getId())
+                .source("WALLET_TRANSACTION")
+                .userId(owner.getId())
+                .username(owner.getUsername())
+                .ownerName(owner.getFullName())
+                .email(owner.getEmail())
+                .role(owner.getRole())
+                .type(transaction.getType())
+                .amount(transaction.getAmount())
+                .balanceBefore(transaction.getBalanceBefore())
+                .balanceAfter(transaction.getBalanceAfter())
+                .currency(wallet.getCurrency())
+                .status(resolveTransactionStatus(transaction))
+                .description(transaction.getDescription())
+                .referenceType(transaction.getReferenceType())
+                .referenceId(transaction.getReferenceId())
+                .bankCode(transaction.getBankCode())
+                .bankName(transaction.getBankName())
+                .bankAccountNumber(transaction.getBankAccountNumber())
+                .bankAccountHolderName(transaction.getBankAccountHolderName())
+                .bankBranch(transaction.getBankBranch())
+                .adminNote(transaction.getAdminNote())
+                .processedByUserId(transaction.getProcessedByUserId())
+                .processedByName(transaction.getProcessedByName())
+                .processedAt(transaction.getProcessedAt())
+                .createdAt(transaction.getCreatedAt())
+                .build();
+    }
+
+    private AdminWalletHistoryItemResponse mapAdminTopUpOrder(WalletTopUpOrder order) {
+        User owner = order.getUser();
+        return AdminWalletHistoryItemResponse.builder()
+                .id("TOP_UP_ORDER-" + order.getId())
+                .source("TOP_UP_ORDER")
+                .userId(owner.getId())
+                .username(owner.getUsername())
+                .ownerName(owner.getFullName())
+                .email(owner.getEmail())
+                .role(owner.getRole())
+                .type(WalletTransactionType.TOP_UP)
+                .amount(order.getAmount())
+                .currency(order.getWallet().getCurrency())
+                .status(order.getStatus().name())
+                .description(order.getDescription())
+                .referenceType("TOP_UP")
+                .referenceId(String.valueOf(order.getOrderCode()))
+                .createdAt(order.getCreatedAt())
+                .build();
+    }
+
+    private boolean matchesAdminWalletKeyword(AdminWalletHistoryItemResponse item, String keyword) {
+        return containsIgnoreCase(item.getId(), keyword)
+                || containsIgnoreCase(item.getUsername(), keyword)
+                || containsIgnoreCase(item.getOwnerName(), keyword)
+                || containsIgnoreCase(item.getEmail(), keyword)
+                || containsIgnoreCase(item.getReferenceId(), keyword)
+                || containsIgnoreCase(item.getDescription(), keyword);
+    }
+
+    private boolean containsIgnoreCase(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
     private String resolveTransactionStatus(WalletTransaction transaction) {

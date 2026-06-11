@@ -8,6 +8,7 @@ import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.enums.WalletWithdrawalStatus;
 import com.minhthien.web.coach.enums.WalletTransactionType;
+import com.minhthien.web.coach.enums.UserRole;
 import com.minhthien.web.coach.exception.BadRequestException;
 import com.minhthien.web.coach.service.WalletService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -156,6 +157,22 @@ public class WalletController {
                         walletService.getAdminWithdrawRequests(status)
                 )
         );
+    }
+
+    @GetMapping("/api/v1/admin/wallets/transactions")
+    public ResponseEntity<ApiResponse<Page<AdminWalletHistoryItemResponse>>> getAdminWalletTransactions(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) UserRole role,
+            @RequestParam(required = false) WalletTransactionType type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                walletService.getAdminWalletTransactions(keyword, role, type, status, from, to, page, size)
+        ));
     }
 
     @PatchMapping("/api/v1/admin/wallets/withdraw-requests/{transactionId}/approve")

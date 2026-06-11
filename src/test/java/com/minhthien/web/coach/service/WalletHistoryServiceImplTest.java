@@ -2,6 +2,7 @@ package com.minhthien.web.coach.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minhthien.web.coach.dto.response.WalletHistoryItemResponse;
+import com.minhthien.web.coach.dto.response.AdminWalletHistoryItemResponse;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.entity.Wallet;
 import com.minhthien.web.coach.entity.WalletTopUpOrder;
@@ -103,5 +104,103 @@ class WalletHistoryServiceImplTest {
                 .containsExactly("TOP_UP_ORDER-32", "TRANSACTION-21");
         assertThat(result.getContent())
                 .noneMatch(item -> item.getId().equals("TOP_UP_ORDER-31"));
+    }
+
+    @Test
+    void adminHistoryIncludesOnlyTopUpsAndWithdrawalsWithoutDuplicatingPaidOrder() {
+        User user = User.builder()
+                .id(8L)
+                .username("coach-eight")
+                .email("coach8@example.com")
+                .fullName("Coach Eight")
+                .role(UserRole.COACHES)
+                .build();
+        Wallet wallet = Wallet.builder().id(9L).user(user).balance(700_000L).currency("VND").build();
+        WalletTransaction topUp = WalletTransaction.builder()
+                .id(41L)
+                .wallet(wallet)
+                .type(WalletTransactionType.TOP_UP)
+                .amount(1_000_000L)
+                .balanceBefore(0L)
+                .balanceAfter(1_000_000L)
+                .createdAt(LocalDateTime.of(2026, 6, 9, 8, 0))
+                .build();
+        WalletTransaction withdrawal = WalletTransaction.builder()
+                .id(42L)
+                .wallet(wallet)
+                .type(WalletTransactionType.WITHDRAWAL)
+                .amount(-300_000L)
+                .balanceBefore(1_000_000L)
+                .balanceAfter(700_000L)
+                .withdrawalStatus(com.minhthien.web.coach.enums.WalletWithdrawalStatus.PROCESSING)
+                .createdAt(LocalDateTime.of(2026, 6, 11, 8, 0))
+                .build();
+        WalletTransaction refund = WalletTransaction.builder()
+                .id(43L)
+                .wallet(wallet)
+                .type(WalletTransactionType.REFUND)
+                .amount(300_000L)
+                .balanceBefore(700_000L)
+                .balanceAfter(1_000_000L)
+                .createdAt(LocalDateTime.of(2026, 6, 11, 9, 0))
+                .build();
+        WalletTopUpOrder paidOrder = WalletTopUpOrder.builder()
+                .id(51L)
+                .user(user)
+                .wallet(wallet)
+                .orderCode(2001L)
+                .amount(1_000_000L)
+                .description("Paid order")
+                .status(WalletTopUpOrderStatus.PAID)
+                .createdAt(LocalDateTime.of(2026, 6, 9, 7, 59))
+                .build();
+        WalletTopUpOrder failedOrder = WalletTopUpOrder.builder()
+                .id(52L)
+                .user(user)
+                .wallet(wallet)
+                .orderCode(2002L)
+                .amount(500_000L)
+                .description("Failed order")
+                .status(WalletTopUpOrderStatus.FAILED)
+                .createdAt(LocalDateTime.of(2026, 6, 10, 8, 0))
+                .build();
+
+        when(walletTransactionRepository.findAll()).thenReturn(List.of(topUp, withdrawal, refund));
+        when(walletTopUpOrderRepository.findAll()).thenReturn(List.of(paidOrder, failedOrder));
+
+        WalletServiceImpl service = createService();
+        Page<AdminWalletHistoryItemResponse> result = service.getAdminWalletTransactions(
+                "coach8@example.com",
+                UserRole.COACHES,
+                null,
+                null,
+                null,
+                null,
+                0,
+                10
+        );
+
+        assertThat(result.getTotalElements()).isEqualTo(3);
+        assertThat(result.getContent())
+                .extracting(AdminWalletHistoryItemResponse::getId)
+                .containsExactly("TRANSACTION-42", "TOP_UP_ORDER-52", "TRANSACTION-41");
+        assertThat(result.getContent())
+                .allMatch(item -> item.getUserId().equals(8L))
+                .noneMatch(item -> item.getId().equals("TRANSACTION-43"))
+                .noneMatch(item -> item.getId().equals("TOP_UP_ORDER-51"));
+    }
+
+    private WalletServiceImpl createService() {
+        return new WalletServiceImpl(
+                userRepository,
+                walletRepository,
+                userBankAccountRepository,
+                walletTransactionRepository,
+                walletTopUpOrderRepository,
+                platformSettingsRepository,
+                userSubscriptionRepository,
+                payOSGatewayService,
+                new ObjectMapper()
+        );
     }
 }
