@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -93,17 +94,20 @@ public class ChatController {
             @Valid @RequestBody SendConversationMessageRequest request) {
 
         ChatMessageResponse response = chatService.sendMessage(currentUser.getId(), conversationId, request.getContent());
-        messagingTemplate.convertAndSendToUser(
-                response.getReceiverUsername(),
-                "/queue/messages",
-                ApiResponse.success("New message", response)
-        );
-        messagingTemplate.convertAndSendToUser(
-                response.getSenderUsername(),
-                "/queue/messages",
-                ApiResponse.success("Message sent", response)
-        );
+        broadcastMessage(response);
         return ResponseEntity.ok(ApiResponse.success("Message sent", response));
+    }
+
+    @PostMapping(value = "/conversations/{conversationId}/attachments", consumes = "multipart/form-data")
+    public ResponseEntity<ApiResponse<ChatMessageResponse>> sendAttachment(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long conversationId,
+            @RequestParam MultipartFile file,
+            @RequestParam(required = false) String content) {
+
+        ChatMessageResponse response = chatService.sendAttachment(currentUser.getId(), conversationId, file, content);
+        broadcastMessage(response);
+        return ResponseEntity.ok(ApiResponse.success("Attachment sent", response));
     }
 
     @GetMapping("/unread-count")
@@ -129,5 +133,18 @@ public class ChatController {
 
         chatService.deleteConversation(currentUser.getId(), conversationId);
         return ResponseEntity.ok(ApiResponse.success("Conversation deleted successfully", null));
+    }
+
+    private void broadcastMessage(ChatMessageResponse response) {
+        messagingTemplate.convertAndSendToUser(
+                response.getReceiverUsername(),
+                "/queue/messages",
+                ApiResponse.success("New message", response)
+        );
+        messagingTemplate.convertAndSendToUser(
+                response.getSenderUsername(),
+                "/queue/messages",
+                ApiResponse.success("Message sent", response)
+        );
     }
 }

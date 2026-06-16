@@ -3,6 +3,7 @@ package com.minhthien.web.coach.service;
 import com.minhthien.web.coach.dto.response.ChatMessageResponse;
 import com.minhthien.web.coach.dto.response.ConversationResponse;
 import org.springframework.data.domain.Page;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -15,6 +16,8 @@ public interface ChatService {
     Page<ChatMessageResponse> getConversationMessages(Long currentUserId, Long conversationId, int page, int size);
 
     ChatMessageResponse sendMessage(Long currentUserId, Long conversationId, String content);
+
+    ChatMessageResponse sendAttachment(Long currentUserId, Long conversationId, MultipartFile file, String content);
 
     long getUnreadCount(Long currentUserId);
 

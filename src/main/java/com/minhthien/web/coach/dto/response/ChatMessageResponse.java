@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.dto.response;
 
+import com.minhthien.web.coach.enums.ChatMessageType;
 import lombok.Builder;
 import lombok.Data;
 
@@ -18,6 +19,12 @@ public class ChatMessageResponse {
     private String receiverUsername;
     private String receiverFullName;
     private String content;
+    private ChatMessageType messageType;
+    private String attachmentUrl;
+    private String attachmentPublicId;
+    private String attachmentFileName;
+    private String attachmentMimeType;
+    private Long attachmentSizeBytes;
     private Boolean read;
     private LocalDateTime readAt;
     private LocalDateTime createdAt;

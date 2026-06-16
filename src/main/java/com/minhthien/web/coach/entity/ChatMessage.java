@@ -1,5 +1,6 @@
 package com.minhthien.web.coach.entity;
 
+import com.minhthien.web.coach.enums.ChatMessageType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -36,6 +37,26 @@ public class ChatMessage {
     private String content;
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 20, columnDefinition = "varchar(20) default 'TEXT'")
+    private ChatMessageType messageType = ChatMessageType.TEXT;
+
+    @Column(name = "attachment_url", length = 1000)
+    private String attachmentUrl;
+
+    @Column(name = "attachment_public_id", length = 255)
+    private String attachmentPublicId;
+
+    @Column(name = "attachment_file_name", length = 255)
+    private String attachmentFileName;
+
+    @Column(name = "attachment_mime_type", length = 120)
+    private String attachmentMimeType;
+
+    @Column(name = "attachment_size_bytes")
+    private Long attachmentSizeBytes;
+
+    @Builder.Default
     @Column(name = "is_read", nullable = false)
     private Boolean read = false;
 
@@ -52,6 +73,9 @@ public class ChatMessage {
         }
         if (read == null) {
             read = false;
+        }
+        if (messageType == null) {
+            messageType = ChatMessageType.TEXT;
         }
     }
 }
