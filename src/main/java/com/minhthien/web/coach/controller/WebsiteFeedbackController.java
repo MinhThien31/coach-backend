@@ -41,6 +41,21 @@ public class WebsiteFeedbackController {
         ));
     }
 
+    @GetMapping("/api/v1/website-feedback")
+    public ResponseEntity<ApiResponse<Page<WebsiteFeedbackResponse>>> getPublicFeedback(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false) UserRole role,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                websiteFeedbackService.getAll(keyword, rating, role, from, to, page, size)
+        ));
+    }
+
     @GetMapping("/api/v1/admin/website-feedback")
     public ResponseEntity<ApiResponse<Page<WebsiteFeedbackResponse>>> getAll(
             @RequestParam(required = false) String keyword,
