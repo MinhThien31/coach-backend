@@ -7,6 +7,7 @@ import com.minhthien.web.coach.entity.PlatformSettings;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.entity.UserSubscription;
 import com.minhthien.web.coach.entity.WalletTransaction;
+import com.minhthien.web.coach.entity.WebsiteFeedback;
 import com.minhthien.web.coach.enums.BookingStatus;
 import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
 import com.minhthien.web.coach.enums.SubscriptionPlanCode;
@@ -21,6 +22,7 @@ import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.repository.UserSubscriptionRepository;
 import com.minhthien.web.coach.repository.WalletRepository;
 import com.minhthien.web.coach.repository.WalletTransactionRepository;
+import com.minhthien.web.coach.repository.WebsiteFeedbackRepository;
 import com.minhthien.web.coach.service.AdminApiService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
@@ -58,6 +60,7 @@ public class AdminApiServiceImpl implements AdminApiService {
     private final WalletRepository walletRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final PlatformSettingsRepository platformSettingsRepository;
+    private final WebsiteFeedbackRepository websiteFeedbackRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -99,7 +102,10 @@ public class AdminApiServiceImpl implements AdminApiService {
         List<User> users = userRepository.findAll();
         List<Booking> bookings = bookingRepository.findAll();
         List<WalletTransaction> transactions = walletTransactionRepository.findAll();
+        List<WebsiteFeedback> feedbacks = websiteFeedbackRepository.findAll();
         LocalDate today = LocalDate.now();
+        FeedbackMetrics traineeFeedback = feedbackMetricsByRole(feedbacks, UserRole.TRAINEES);
+        FeedbackMetrics coachFeedback = feedbackMetricsByRole(feedbacks, UserRole.COACHES);
 
         return AdminApiResponses.DashboardOverviewResponse.builder()
                 .totalUsers(users.size())
@@ -113,6 +119,12 @@ public class AdminApiServiceImpl implements AdminApiService {
                 .todayRevenue(sumTransactions(transactions, today.atStartOfDay(), today.plusDays(1).atStartOfDay(), true))
                 .monthRevenue(sumTransactions(transactions, today.withDayOfMonth(1).atStartOfDay(), today.plusDays(1).atStartOfDay(), true))
                 .platformCommission(sumByType(transactions, WalletTransactionType.BOOKING_COMMISSION, null, null))
+                .traineeTopUpAmount(sumTopUpsByRole(transactions, UserRole.TRAINEES))
+                .coachTopUpAmount(sumTopUpsByRole(transactions, UserRole.COACHES))
+                .traineeFeedbackAverageRating(traineeFeedback.averageRating())
+                .traineeFeedbackCount(traineeFeedback.count())
+                .coachFeedbackAverageRating(coachFeedback.averageRating())
+                .coachFeedbackCount(coachFeedback.count())
                 .build();
     }
 
@@ -857,6 +869,30 @@ public class AdminApiServiceImpl implements AdminApiService {
                 .sum();
     }
 
+    private long sumTopUpsByRole(List<WalletTransaction> transactions, UserRole role) {
+        return transactions.stream()
+                .filter(t -> t.getType() == WalletTransactionType.TOP_UP)
+                .filter(t -> t.getWallet() != null && t.getWallet().getUser() != null)
+                .filter(t -> t.getWallet().getUser().getRole() == role)
+                .mapToLong(t -> Math.abs(nullToZero(t.getAmount())))
+                .sum();
+    }
+
+    private FeedbackMetrics feedbackMetricsByRole(List<WebsiteFeedback> feedbacks, UserRole role) {
+        List<WebsiteFeedback> roleFeedbacks = feedbacks.stream()
+                .filter(feedback -> feedback.getUser() != null && feedback.getUser().getRole() == role)
+                .toList();
+        long count = roleFeedbacks.size();
+        if (count == 0) {
+            return new FeedbackMetrics(0.0d, 0L);
+        }
+        double average = roleFeedbacks.stream()
+                .mapToInt(WebsiteFeedback::getRating)
+                .average()
+                .orElse(0.0d);
+        return new FeedbackMetrics(Math.round(average * 10.0d) / 10.0d, count);
+    }
+
     private Booking findReferencedBooking(WalletTransaction transaction) {
         if (!"BOOKING".equalsIgnoreCase(transaction.getReferenceType()) || !StringUtils.hasText(transaction.getReferenceId())) {
             return null;
@@ -968,5 +1004,8 @@ public class AdminApiServiceImpl implements AdminApiService {
 
     private long nullToZero(Long value) {
         return Objects.requireNonNullElse(value, 0L);
+    }
+
+    private record FeedbackMetrics(double averageRating, long count) {
     }
 }

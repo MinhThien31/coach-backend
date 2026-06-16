@@ -52,6 +52,12 @@ public class AdminApiResponses {
         private long todayRevenue;
         private long monthRevenue;
         private long platformCommission;
+        private long traineeTopUpAmount;
+        private long coachTopUpAmount;
+        private double traineeFeedbackAverageRating;
+        private long traineeFeedbackCount;
+        private double coachFeedbackAverageRating;
+        private long coachFeedbackCount;
     }
 
     @Data
