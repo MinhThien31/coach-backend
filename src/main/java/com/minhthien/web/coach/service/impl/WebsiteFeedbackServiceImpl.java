@@ -5,6 +5,8 @@ import com.minhthien.web.coach.dto.response.WebsiteFeedbackResponse;
 import com.minhthien.web.coach.entity.User;
 import com.minhthien.web.coach.entity.WebsiteFeedback;
 import com.minhthien.web.coach.enums.UserRole;
+import com.minhthien.web.coach.exception.BadRequestException;
+import com.minhthien.web.coach.exception.DuplicateResourceException;
 import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.repository.UserRepository;
 import com.minhthien.web.coach.repository.WebsiteFeedbackRepository;
@@ -12,6 +14,7 @@ import com.minhthien.web.coach.service.WebsiteFeedbackService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -55,12 +58,21 @@ public class WebsiteFeedbackServiceImpl implements WebsiteFeedbackService {
     public WebsiteFeedbackResponse saveMine(Long userId, WebsiteFeedbackRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-        WebsiteFeedback feedback = websiteFeedbackRepository.findByUserId(userId)
-                .orElseGet(() -> WebsiteFeedback.builder().user(user).build());
+        if (user.getRole() != UserRole.TRAINEES && user.getRole() != UserRole.COACHES) {
+            throw new BadRequestException("Chỉ học viên và huấn luyện viên mới có thể gửi đánh giá website");
+        }
+        if (websiteFeedbackRepository.findByUserId(userId).isPresent()) {
+            throw new DuplicateResourceException("Bạn đã gửi đánh giá rồi, không thể đánh giá lần thứ hai.");
+        }
 
+        WebsiteFeedback feedback = WebsiteFeedback.builder().user(user).build();
         feedback.setRating(request.getRating());
         feedback.setComment(normalizeComment(request.getComment()));
-        return map(websiteFeedbackRepository.save(feedback));
+        try {
+            return map(websiteFeedbackRepository.save(feedback));
+        } catch (DataIntegrityViolationException ex) {
+            throw new DuplicateResourceException("Bạn đã gửi đánh giá rồi, không thể đánh giá lần thứ hai.");
+        }
     }
 
     @Override

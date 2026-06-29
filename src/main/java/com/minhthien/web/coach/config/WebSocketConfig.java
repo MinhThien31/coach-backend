@@ -29,6 +29,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setAllowedOriginPatterns(
                         "https://minhthien.io.vn",
                         "https://www.minhthien.io.vn",
+                        "https://mo.minhthien.io.vn",
                         "https://*.vercel.app",
                         "http://localhost:3000",
                         "http://localhost:5173"

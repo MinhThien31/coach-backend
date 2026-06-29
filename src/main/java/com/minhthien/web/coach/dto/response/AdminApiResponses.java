@@ -54,6 +54,8 @@ public class AdminApiResponses {
         private long platformCommission;
         private long traineeTopUpAmount;
         private long coachTopUpAmount;
+        private double websiteFeedbackAverageRating;
+        private long websiteFeedbackCount;
         private double traineeFeedbackAverageRating;
         private long traineeFeedbackCount;
         private double coachFeedbackAverageRating;

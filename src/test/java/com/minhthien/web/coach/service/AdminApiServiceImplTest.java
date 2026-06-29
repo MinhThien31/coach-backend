@@ -63,6 +63,8 @@ class AdminApiServiceImplTest {
 
         assertThat(result.getTraineeTopUpAmount()).isEqualTo(100_000L);
         assertThat(result.getCoachTopUpAmount()).isEqualTo(250_000L);
+        assertThat(result.getWebsiteFeedbackCount()).isEqualTo(3L);
+        assertThat(result.getWebsiteFeedbackAverageRating()).isEqualTo(4.0d);
         assertThat(result.getTraineeFeedbackCount()).isEqualTo(2L);
         assertThat(result.getTraineeFeedbackAverageRating()).isEqualTo(4.0d);
         assertThat(result.getCoachFeedbackCount()).isEqualTo(1L);
@@ -82,6 +84,8 @@ class AdminApiServiceImplTest {
         assertThat(result.getTraineeFeedbackAverageRating()).isZero();
         assertThat(result.getCoachFeedbackCount()).isZero();
         assertThat(result.getCoachFeedbackAverageRating()).isZero();
+        assertThat(result.getWebsiteFeedbackCount()).isZero();
+        assertThat(result.getWebsiteFeedbackAverageRating()).isZero();
     }
 
     private AdminApiServiceImpl service() {

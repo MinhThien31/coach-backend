@@ -104,6 +104,7 @@ public class AdminApiServiceImpl implements AdminApiService {
         List<WalletTransaction> transactions = walletTransactionRepository.findAll();
         List<WebsiteFeedback> feedbacks = websiteFeedbackRepository.findAll();
         LocalDate today = LocalDate.now();
+        FeedbackMetrics websiteFeedback = websiteFeedbackMetrics(feedbacks);
         FeedbackMetrics traineeFeedback = feedbackMetricsByRole(feedbacks, UserRole.TRAINEES);
         FeedbackMetrics coachFeedback = feedbackMetricsByRole(feedbacks, UserRole.COACHES);
 
@@ -121,6 +122,8 @@ public class AdminApiServiceImpl implements AdminApiService {
                 .platformCommission(sumByType(transactions, WalletTransactionType.BOOKING_COMMISSION, null, null))
                 .traineeTopUpAmount(sumTopUpsByRole(transactions, UserRole.TRAINEES))
                 .coachTopUpAmount(sumTopUpsByRole(transactions, UserRole.COACHES))
+                .websiteFeedbackAverageRating(websiteFeedback.averageRating())
+                .websiteFeedbackCount(websiteFeedback.count())
                 .traineeFeedbackAverageRating(traineeFeedback.averageRating())
                 .traineeFeedbackCount(traineeFeedback.count())
                 .coachFeedbackAverageRating(coachFeedback.averageRating())
@@ -882,6 +885,19 @@ public class AdminApiServiceImpl implements AdminApiService {
         List<WebsiteFeedback> roleFeedbacks = feedbacks.stream()
                 .filter(feedback -> feedback.getUser() != null && feedback.getUser().getRole() == role)
                 .toList();
+        return feedbackMetrics(roleFeedbacks);
+    }
+
+    private FeedbackMetrics websiteFeedbackMetrics(List<WebsiteFeedback> feedbacks) {
+        List<WebsiteFeedback> roleFeedbacks = feedbacks.stream()
+                .filter(feedback -> feedback.getUser() != null)
+                .filter(feedback -> feedback.getUser().getRole() == UserRole.TRAINEES
+                        || feedback.getUser().getRole() == UserRole.COACHES)
+                .toList();
+        return feedbackMetrics(roleFeedbacks);
+    }
+
+    private FeedbackMetrics feedbackMetrics(List<WebsiteFeedback> roleFeedbacks) {
         long count = roleFeedbacks.size();
         if (count == 0) {
             return new FeedbackMetrics(0.0d, 0L);
