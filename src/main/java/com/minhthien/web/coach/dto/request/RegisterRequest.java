@@ -29,6 +29,13 @@ public class RegisterRequest {
     @NotNull(message = "Role is required")
     private UserRole role;
 
+    private String gymName;
+
+    private String gymAddress;
+
+    private String gymHotline;
+
+    private String gymDescription;
 
 }
 

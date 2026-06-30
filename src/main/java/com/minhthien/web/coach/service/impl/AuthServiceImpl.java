@@ -8,9 +8,12 @@ import com.minhthien.web.coach.dto.request.LoginRequest;
 import com.minhthien.web.coach.dto.request.RegisterRequest;
 import com.minhthien.web.coach.dto.response.AuthResponse;
 import com.minhthien.web.coach.dto.response.UserResponse;
+import com.minhthien.web.coach.entity.GymProfile;
 import com.minhthien.web.coach.entity.PasswordResetOtp;
 import com.minhthien.web.coach.entity.TraineeProfile;
 import com.minhthien.web.coach.entity.User;
+import com.minhthien.web.coach.entity.Wallet;
+import com.minhthien.web.coach.enums.GymProfileStatus;
 import com.minhthien.web.coach.enums.UserRole;
 import com.minhthien.web.coach.exception.BadRequestException;
 import com.minhthien.web.coach.exception.DuplicateResourceException;
@@ -18,6 +21,8 @@ import com.minhthien.web.coach.exception.ResourceNotFoundException;
 import com.minhthien.web.coach.repository.PasswordResetOtpRepository;
 import com.minhthien.web.coach.repository.TraineeProfileRepository;
 import com.minhthien.web.coach.repository.UserRepository;
+import com.minhthien.web.coach.repository.GymProfileRepository;
+import com.minhthien.web.coach.repository.WalletRepository;
 import com.minhthien.web.coach.security.JwtTokenProvider;
 import com.minhthien.web.coach.service.AuthService;
 import com.minhthien.web.coach.service.MailService;
@@ -30,6 +35,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -49,6 +55,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordResetOtpRepository otpRepository;
     private final MailService mailService;
     private final TraineeProfileRepository traineeProfileRepository;
+    private final GymProfileRepository gymProfileRepository;
+    private final WalletRepository walletRepository;
 
     @Value("${google.client-id}")
     private String googleClientId;
@@ -65,6 +73,9 @@ public class AuthServiceImpl implements AuthService {
         if (request.getRole() == UserRole.ADMIN) {
             throw new BadRequestException("Cannot register as ADMIN");
         }
+        if (request.getRole() == UserRole.GYM_OWNERS && !StringUtils.hasText(request.getGymName())) {
+            throw new BadRequestException("Gym name is required");
+        }
 
         User user = User.builder()
                 .username(request.getUsername())
@@ -78,6 +89,7 @@ public class AuthServiceImpl implements AuthService {
 
         user = userRepository.save(user);
         ensureDefaultTraineeProfile(user);
+        ensureGymOwnerProfile(user, request);
         String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
         return buildAuthResponse(user, token);
     }
@@ -255,5 +267,35 @@ public class AuthServiceImpl implements AuthService {
                         .avatar(user.getAvatarUrl())
                         .joinedDate(LocalDate.now())
                         .build()));
+    }
+
+    private void ensureGymOwnerProfile(User user, RegisterRequest request) {
+        if (user.getRole() != UserRole.GYM_OWNERS) {
+            return;
+        }
+
+        walletRepository.findByUserId(user.getId())
+                .orElseGet(() -> walletRepository.save(Wallet.builder()
+                        .user(user)
+                        .balance(0L)
+                        .currency("VND")
+                        .build()));
+
+        gymProfileRepository.findByOwnerId(user.getId())
+                .orElseGet(() -> gymProfileRepository.save(GymProfile.builder()
+                        .owner(user)
+                        .name(request.getGymName().trim())
+                        .address(trimToNull(request.getGymAddress()))
+                        .hotline(trimToNull(request.getGymHotline()))
+                        .description(trimToNull(request.getGymDescription()))
+                        .status(GymProfileStatus.PENDING)
+                        .build()));
+    }
+
+    private String trimToNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 }

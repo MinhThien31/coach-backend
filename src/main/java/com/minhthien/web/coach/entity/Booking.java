@@ -3,6 +3,7 @@ package com.minhthien.web.coach.entity;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.minhthien.web.coach.enums.BookingStatus;
 import com.minhthien.web.coach.enums.BookingType;
+import com.minhthien.web.coach.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -76,6 +77,17 @@ public class Booking {
     private Long adminCommissionAmount;
 
     private Long coachPayoutAmount;
+
+    private Long payoutRecipientUserId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private UserRole payoutRecipientRole;
+
+    @Column(length = 150)
+    private String payoutRecipientName;
+
+    private Long gymId;
 
     private LocalDateTime settledAt;
 

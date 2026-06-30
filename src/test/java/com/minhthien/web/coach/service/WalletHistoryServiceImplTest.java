@@ -35,6 +35,7 @@ class WalletHistoryServiceImplTest {
     @Mock private WalletTopUpOrderRepository walletTopUpOrderRepository;
     @Mock private PlatformSettingsRepository platformSettingsRepository;
     @Mock private UserSubscriptionRepository userSubscriptionRepository;
+    @Mock private GymCoachRepository gymCoachRepository;
     @Mock private PayOSGatewayService payOSGatewayService;
 
     @Test
@@ -91,6 +92,7 @@ class WalletHistoryServiceImplTest {
                 walletTopUpOrderRepository,
                 platformSettingsRepository,
                 userSubscriptionRepository,
+                gymCoachRepository,
                 payOSGatewayService,
                 new ObjectMapper()
         );
@@ -199,6 +201,7 @@ class WalletHistoryServiceImplTest {
                 walletTopUpOrderRepository,
                 platformSettingsRepository,
                 userSubscriptionRepository,
+                gymCoachRepository,
                 payOSGatewayService,
                 new ObjectMapper()
         );

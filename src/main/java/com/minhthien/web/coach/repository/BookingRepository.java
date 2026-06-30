@@ -131,6 +131,19 @@ AND LOWER(tp.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
     @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     List<Booking> findByCoachId(Long coachId);
 
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
+    List<Booking> findByGymIdOrderByStartDateDescCreatedAtDesc(Long gymId);
+
+    @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
+    @Query("""
+    SELECT b
+    FROM Booking b
+    WHERE b.gymId = :gymId
+    OR b.coach.id IN :coachIds
+    ORDER BY b.startDate DESC, b.createdAt DESC
+    """)
+    List<Booking> findGymBookings(Long gymId, Collection<Long> coachIds);
+
     @Override
     @EntityGraph(attributePaths = {"trainee", "coach", "coach.user"})
     java.util.Optional<Booking> findById(Long bookingId);

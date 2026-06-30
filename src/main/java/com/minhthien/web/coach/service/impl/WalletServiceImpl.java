@@ -8,6 +8,8 @@ import com.minhthien.web.coach.dto.request.WalletWithdrawRequest;
 import com.minhthien.web.coach.dto.request.WalletWithdrawalReviewRequest;
 import com.minhthien.web.coach.dto.response.*;
 import com.minhthien.web.coach.entity.*;
+import com.minhthien.web.coach.enums.GymCoachStatus;
+import com.minhthien.web.coach.enums.GymProfileStatus;
 import com.minhthien.web.coach.enums.SubscriptionBillingCycle;
 import com.minhthien.web.coach.enums.SubscriptionPlanCode;
 import com.minhthien.web.coach.enums.UserRole;
@@ -49,6 +51,7 @@ public class WalletServiceImpl implements WalletService {
     private final WalletTopUpOrderRepository walletTopUpOrderRepository;
     private final PlatformSettingsRepository platformSettingsRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final GymCoachRepository gymCoachRepository;
     private final PayOSGatewayService payOSGatewayService;
     private final ObjectMapper objectMapper;
 
@@ -544,6 +547,10 @@ public class WalletServiceImpl implements WalletService {
                     .chargedAmount(booking.getSettledAmount())
                     .adminCommissionAmount(booking.getAdminCommissionAmount())
                     .coachPayoutAmount(booking.getCoachPayoutAmount())
+                    .payoutRecipientUserId(booking.getPayoutRecipientUserId())
+                    .payoutRecipientRole(booking.getPayoutRecipientRole())
+                    .payoutRecipientName(booking.getPayoutRecipientName())
+                    .gymId(booking.getGymId())
                     .build();
         }
         if (booking.getTrainee() == null || booking.getCoach() == null || booking.getCoach().getUser() == null) {
@@ -559,7 +566,8 @@ public class WalletServiceImpl implements WalletService {
         long adminCommission = Math.round(totalAmount * commissionRate / 100.0d);
         long coachPayout = totalAmount - adminCommission;
 
-        Wallet coachWallet = getOrCreateWallet(booking.getCoach().getUser());
+        PayoutRecipient payoutRecipient = resolvePayoutRecipient(booking);
+        Wallet providerWallet = getOrCreateWallet(payoutRecipient.user);
         Wallet adminWallet = getOrCreateWallet(getAdminUser());
 
         String referenceId = String.valueOf(booking.getId());
@@ -573,16 +581,16 @@ public class WalletServiceImpl implements WalletService {
                 referenceId
         );
         applyTransaction(
-                coachWallet,
+                providerWallet,
                 coachPayout,
                 WalletTransactionType.BOOKING_COACH_PAYOUT,
-                "Nhận tiền buổi học booking #" + booking.getId(),
+                payoutRecipient.descriptionPrefix + " booking #" + booking.getId(),
                 "BOOKING",
                 referenceId
         );
 
         walletRepository.save(adminWallet);
-        walletRepository.save(coachWallet);
+        walletRepository.save(providerWallet);
 
         // Lấy số dư ví Trainee (Dù không thay đổi ở bước này)
         Wallet traineeWallet = getOrCreateWallet(booking.getTrainee());
@@ -592,9 +600,38 @@ public class WalletServiceImpl implements WalletService {
                 .adminCommissionAmount(adminCommission)
                 .coachPayoutAmount(coachPayout)
                 .traineeWalletBalanceAfter(traineeWallet.getBalance())
-                .coachWalletBalanceAfter(coachWallet.getBalance())
+                .coachWalletBalanceAfter(providerWallet.getBalance())
                 .adminWalletBalanceAfter(adminWallet.getBalance())
+                .payoutRecipientUserId(payoutRecipient.user.getId())
+                .payoutRecipientRole(payoutRecipient.user.getRole())
+                .payoutRecipientName(payoutRecipient.name)
+                .gymId(payoutRecipient.gymId)
                 .build();
+    }
+
+    private PayoutRecipient resolvePayoutRecipient(Booking booking) {
+        return gymCoachRepository.findFirstByCoachIdAndStatus(booking.getCoach().getId(), GymCoachStatus.ACTIVE)
+                .filter(gymCoach -> gymCoach.getGym() != null
+                        && gymCoach.getGym().getStatus() == GymProfileStatus.APPROVED
+                        && gymCoach.getGym().getOwner() != null)
+                .map(gymCoach -> new PayoutRecipient(
+                        gymCoach.getGym().getOwner(),
+                        gymCoach.getGym().getName(),
+                        gymCoach.getGym().getId(),
+                        "Payout cho phong tap " + gymCoach.getGym().getName()
+                ))
+                .orElseGet(() -> {
+                    User coachUser = booking.getCoach().getUser();
+                    String name = StringUtils.hasText(coachUser.getFullName())
+                            ? coachUser.getFullName()
+                            : coachUser.getUsername();
+                    return new PayoutRecipient(
+                            coachUser,
+                            name,
+                            null,
+                            "Payout cho coach " + name
+                    );
+                });
     }
 
     private void syncTopUpOrderFromPayOS(WalletTopUpOrder order, PayOSGatewayService.PaymentRequestStatusData statusData) {
@@ -1083,5 +1120,19 @@ public class WalletServiceImpl implements WalletService {
 
     private String firstNonBlank(String current, String fallback) {
         return StringUtils.hasText(current) ? current : fallback;
+    }
+
+    private static class PayoutRecipient {
+        private final User user;
+        private final String name;
+        private final Long gymId;
+        private final String descriptionPrefix;
+
+        private PayoutRecipient(User user, String name, Long gymId, String descriptionPrefix) {
+            this.user = user;
+            this.name = name;
+            this.gymId = gymId;
+            this.descriptionPrefix = descriptionPrefix;
+        }
     }
 }

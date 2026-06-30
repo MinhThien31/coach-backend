@@ -16,4 +16,8 @@ public class BookingSettlementResult {
     private Long traineeWalletBalanceAfter;
     private Long coachWalletBalanceAfter;
     private Long adminWalletBalanceAfter;
+    private Long payoutRecipientUserId;
+    private com.minhthien.web.coach.enums.UserRole payoutRecipientRole;
+    private String payoutRecipientName;
+    private Long gymId;
 }

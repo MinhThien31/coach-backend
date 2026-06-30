@@ -188,6 +188,10 @@ public class BookingServiceImpl implements BookingService {
             booking.setSettledAmount(settlementResult.getChargedAmount());
             booking.setAdminCommissionAmount(settlementResult.getAdminCommissionAmount());
             booking.setCoachPayoutAmount(settlementResult.getCoachPayoutAmount());
+            booking.setPayoutRecipientUserId(settlementResult.getPayoutRecipientUserId());
+            booking.setPayoutRecipientRole(settlementResult.getPayoutRecipientRole());
+            booking.setPayoutRecipientName(settlementResult.getPayoutRecipientName());
+            booking.setGymId(settlementResult.getGymId());
             booking.setSettledAt(LocalDateTime.now());
         }
 
